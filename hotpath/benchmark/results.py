@@ -72,10 +72,23 @@ class ContainerUsage(BaseModel):
     samples: int
 
 
+class DbActivity(BaseModel):
+    """What the database itself was doing during a load run (sampled from pg_stat_activity)."""
+
+    samples: int
+    active_connections_avg: float
+    active_connections_max: int
+    idle_in_transaction_avg: float
+    pool_connections_max: int
+    commits_per_s: float | None
+    wait_events: dict[str, int]  # "type:event" -> times observed across samples
+
+
 class LoadRun(BaseModel):
     load: LoadReport
     spans: dict[str, SpanStats] = {}
     containers: dict[str, ContainerUsage] = {}
+    db_activity: DbActivity | None = None
 
 
 class BenchmarkResult(BaseModel):
