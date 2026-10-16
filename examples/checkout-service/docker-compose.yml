@@ -1,0 +1,60 @@
+services:
+  db:
+    build: ./db
+    environment:
+      POSTGRES_USER: checkout
+      POSTGRES_PASSWORD: checkout
+      POSTGRES_DB: checkout
+      # Network latency on database responses, modelling a DB on its own host
+      # (Docker's in-VM bridge is ~0.06ms RTT; real deployments are 0.3-1ms).
+      DB_NETWORK_DELAY: ${DB_NETWORK_DELAY:-500us}
+    cap_add:
+      - NET_ADMIN
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U checkout -d checkout"]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+
+  app:
+    build:
+      context: .
+      target: runtime
+    environment:
+      DATABASE_URL: postgresql://checkout:checkout@db:5432/checkout
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+
+  tests:
+    build:
+      context: .
+      target: test
+    environment:
+      BASE_URL: http://app:8000
+      DATABASE_URL: postgresql://checkout:checkout@db:5432/checkout
+    depends_on:
+      app:
+        condition: service_healthy
+    profiles: ["tools"]
+
+  k6:
+    image: grafana/k6:0.54.0
+    environment:
+      BASE_URL: http://app:8000
+    volumes:
+      - ./load:/load:ro
+      - ./results:/results
+    depends_on:
+      app:
+        condition: service_healthy
+    profiles: ["tools"]
