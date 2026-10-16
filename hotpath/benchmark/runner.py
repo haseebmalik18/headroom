@@ -16,6 +16,7 @@ from hotpath.benchmark.results import BenchmarkResult, LoadReport, LoadRun, Span
 from hotpath.config import ProjectConfig, Workload, load_config, parse_duration
 from hotpath.execution.docker import CommandError, ComposeProject, project_name
 from hotpath.telemetry.collector import ContainerStatsSampler
+from hotpath.telemetry.postgres import PostgresActivitySampler
 
 Log = Callable[[str], None]
 
@@ -31,6 +32,7 @@ async def run_benchmark(
     workloads: list[Workload] | None = None,
     run_tests: bool = True,
     collect_stats: bool = True,
+    db_activity: bool = False,
     out_dir: Path = Path(".hotpath/runs"),
     keep: bool = False,
     log: Log = _noop,
@@ -72,7 +74,7 @@ async def run_benchmark(
         for index, workload in enumerate(workloads, start=1):
             log(f"load {index}/{len(workloads)}: {workload.concurrency} concurrent, think {workload.think_ms:g}ms, "
                 f"{workload.duration} after {workload.warmup} warmup")
-            run = await _run_load(project, config, workload, results_dir, collect_stats,
+            run = await _run_load(project, config, workload, results_dir, collect_stats, db_activity,
                                   label=f"load-{index}-c{workload.concurrency}")
             result.runs.append(run)
             log(f"load: p99 {run.load.p99_ms:.1f}ms, {run.load.throughput_rps:.1f} rps, "
@@ -104,7 +106,7 @@ async def _run_tests(project: ComposeProject, config: ProjectConfig, results_dir
 
 
 async def _run_load(project: ComposeProject, config: ProjectConfig, workload: Workload,
-                    results_dir: Path, collect_stats: bool, label: str) -> LoadRun:
+                    results_dir: Path, collect_stats: bool, db_activity: bool, label: str) -> LoadRun:
     runtime = config.runtime
     app_url = f"http://127.0.0.1:{project.app_port}"
 
@@ -112,6 +114,7 @@ async def _run_load(project: ComposeProject, config: ProjectConfig, workload: Wo
     if runtime.db_service:
         containers["db"] = await project.container_id(runtime.db_service)
     sampler = ContainerStatsSampler({k: v for k, v in containers.items() if v and collect_stats})
+    db_sampler = PostgresActivitySampler(project, runtime.db_service) if db_activity and runtime.db_service else None
 
     async def start_measuring() -> None:
         # Server-side spans and container stats cover the measured window only.
@@ -120,6 +123,8 @@ async def _run_load(project: ComposeProject, config: ProjectConfig, workload: Wo
             async with httpx.AsyncClient() as client:
                 await client.post(f"{app_url}{runtime.metrics_path}/reset", timeout=10)
         sampler.start()
+        if db_sampler:
+            db_sampler.start()
 
     measuring = asyncio.create_task(start_measuring())
     try:
@@ -140,6 +145,7 @@ async def _run_load(project: ComposeProject, config: ProjectConfig, workload: Wo
     finally:
         measuring.cancel()
         usage = await sampler.stop()
+        activity = await db_sampler.stop() if db_sampler else None
 
     (results_dir / f"{label}.log").write_text(k6.output)
     summary = results_dir / f"k6-{label}.json"
@@ -159,4 +165,5 @@ async def _run_load(project: ComposeProject, config: ProjectConfig, workload: Wo
         load=LoadReport.model_validate_json(summary.read_text()),
         spans=spans,
         containers=usage,
+        db_activity=activity,
     )
