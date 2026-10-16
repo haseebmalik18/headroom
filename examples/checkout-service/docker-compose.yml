@@ -42,6 +42,8 @@ services:
     environment:
       BASE_URL: http://app:8000
       DATABASE_URL: postgresql://checkout:checkout@db:5432/checkout
+    volumes:
+      - ${RESULTS_DIR:-./results}:/results
     depends_on:
       app:
         condition: service_healthy
@@ -53,7 +55,7 @@ services:
       BASE_URL: http://app:8000
     volumes:
       - ./load:/load:ro
-      - ./results:/results
+      - ${RESULTS_DIR:-./results}:/results
     depends_on:
       app:
         condition: service_healthy
