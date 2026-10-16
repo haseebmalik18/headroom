@@ -9,3 +9,4 @@ __pycache__/
 results/
 node_modules/
 .DS_Store
+evals/results/
