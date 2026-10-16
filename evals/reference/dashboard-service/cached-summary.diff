@@ -1,0 +1,33 @@
+diff --git a/app/dashboard.py b/app/dashboard.py
+index b661aae..3cfac12 100644
+--- a/app/dashboard.py
++++ b/app/dashboard.py
+@@ -1,5 +1,7 @@
+ """Store dashboard: headline numbers for the last 30 days."""
+ 
++import time
++
+ import asyncpg
+ 
+ from . import telemetry
+@@ -49,7 +51,20 @@ async def _fetch(conn: asyncpg.Connection, name: str, sql: str, store_id: int):
+         return await conn.fetch(sql, store_id)
+ 
+ 
++_cache: dict[int, tuple[float, dict]] = {}
++CACHE_SECONDS = 30
++
++
+ async def summary(pool: asyncpg.Pool, store_id: int) -> dict:
++    hit = _cache.get(store_id)
++    if hit and time.monotonic() - hit[0] < CACHE_SECONDS:
++        return hit[1]
++    result = await _summary(pool, store_id)
++    _cache[store_id] = (time.monotonic(), result)
++    return result
++
++
++async def _summary(pool: asyncpg.Pool, store_id: int) -> dict:
+     async with pool.acquire() as conn:
+         if await conn.fetchval("SELECT 1 FROM stores WHERE id = $1", store_id) is None:
+             raise UnknownStore(store_id)

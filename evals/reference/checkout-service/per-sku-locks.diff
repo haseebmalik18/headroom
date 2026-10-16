@@ -1,0 +1,36 @@
+diff --git a/app/inventory.py b/app/inventory.py
+index 4bea9d1..0d84bbc 100644
+--- a/app/inventory.py
++++ b/app/inventory.py
+@@ -1,4 +1,5 @@
+ import asyncio
++from collections import defaultdict
+ from dataclasses import dataclass
+ 
+ import asyncpg
+@@ -26,19 +27,20 @@ class Reservation:
+ 
+ 
+ # A reservation reads the current stock level and writes back the new level.
+-# Serialize reservations so two requests can never decrement from the same
+-# snapshot, which would oversell inventory.
+-_inventory_lock = asyncio.Lock()
++# Serialize reservations per SKU so two requests can never decrement the same
++# product from the same snapshot; different SKUs proceed in parallel.
++_sku_locks: dict[str, asyncio.Lock] = defaultdict(asyncio.Lock)
+ 
+ 
+ async def reserve(pool: asyncpg.Pool, sku: str, quantity: int) -> Reservation:
+     with telemetry.span("inventory.lock_wait"):
+-        await _inventory_lock.acquire()
++        lock = _sku_locks[sku]
++        await lock.acquire()
+     try:
+         with telemetry.span("inventory.lock_held"):
+             return await _reserve_locked(pool, sku, quantity)
+     finally:
+-        _inventory_lock.release()
++        lock.release()
+ 
+ 
+ async def _reserve_locked(pool: asyncpg.Pool, sku: str, quantity: int) -> Reservation:

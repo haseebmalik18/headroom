@@ -1,0 +1,19 @@
+diff --git a/app/inventory.py b/app/inventory.py
+index 4bea9d1..9fb6479 100644
+--- a/app/inventory.py
++++ b/app/inventory.py
+@@ -32,13 +32,7 @@ _inventory_lock = asyncio.Lock()
+ 
+ 
+ async def reserve(pool: asyncpg.Pool, sku: str, quantity: int) -> Reservation:
+-    with telemetry.span("inventory.lock_wait"):
+-        await _inventory_lock.acquire()
+-    try:
+-        with telemetry.span("inventory.lock_held"):
+-            return await _reserve_locked(pool, sku, quantity)
+-    finally:
+-        _inventory_lock.release()
++    return await _reserve_locked(pool, sku, quantity)
+ 
+ 
+ async def _reserve_locked(pool: asyncpg.Pool, sku: str, quantity: int) -> Reservation:

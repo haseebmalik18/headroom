@@ -1,0 +1,43 @@
+# HotPath evaluation scenarios.
+#
+# Ground truth lives here, outside every scenario's repository, so the model never sees it.
+# `root_cause_keywords` is a coarse, transparent check on the supported hypothesis; every
+# investigation is also saved in full for manual review.
+#
+# `reference_fixes` are hand-written patches used to prove each scenario is solvable and that
+# its tests catch broken fixes: `expect: valid` must pass every test, `expect: rejected` must fail.
+
+scenarios:
+  - name: lock-contention
+    repo: examples/checkout-service
+    root_cause: A global asyncio.Lock serializes every inventory reservation, including unrelated SKUs.
+    root_cause_keywords: [lock, serializ, mutex, synchroniz, contention]
+    reference_fixes:
+      - {name: atomic-update, expect: valid}
+      - {name: per-sku-locks, expect: valid}
+      - {name: no-lock, expect: rejected}
+
+  - name: n-plus-one
+    repo: evals/scenarios/catalog-service
+    root_cause: The category listing issues two queries per product (82 round trips per request).
+    root_cause_keywords: ["n+1", "n + 1", per-product, per product, each product, round trip, number of queries]
+    reference_fixes:
+      - {name: single-query, expect: valid}
+      - {name: batched-any, expect: valid}
+      - {name: inner-join, expect: rejected}
+
+  - name: blocking-event-loop
+    repo: evals/scenarios/auth-service
+    root_cause: PBKDF2 password hashing runs synchronously inside async handlers, blocking the event loop for every request.
+    root_cause_keywords: [event loop, blocking, pbkdf2, password hash, cpu-bound, synchronous]
+    reference_fixes:
+      - {name: to-thread, expect: valid}
+      - {name: verification-cache, expect: rejected}
+
+  - name: sequential-queries
+    repo: evals/scenarios/dashboard-service
+    root_cause: Five independent aggregate queries run one after another on a single connection.
+    root_cause_keywords: [sequential, serial, one after another, concurren, parallel, gather]
+    reference_fixes:
+      - {name: gather, expect: valid}
+      - {name: cached-summary, expect: rejected}

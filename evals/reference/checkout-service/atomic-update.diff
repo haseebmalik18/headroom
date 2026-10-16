@@ -1,0 +1,52 @@
+diff --git a/app/inventory.py b/app/inventory.py
+index 4bea9d1..d5e7a6a 100644
+--- a/app/inventory.py
++++ b/app/inventory.py
+@@ -32,13 +32,7 @@ _inventory_lock = asyncio.Lock()
+ 
+ 
+ async def reserve(pool: asyncpg.Pool, sku: str, quantity: int) -> Reservation:
+-    with telemetry.span("inventory.lock_wait"):
+-        await _inventory_lock.acquire()
+-    try:
+-        with telemetry.span("inventory.lock_held"):
+-            return await _reserve_locked(pool, sku, quantity)
+-    finally:
+-        _inventory_lock.release()
++    return await _reserve_locked(pool, sku, quantity)
+ 
+ 
+ async def _reserve_locked(pool: asyncpg.Pool, sku: str, quantity: int) -> Reservation:
+@@ -47,22 +41,19 @@ async def _reserve_locked(pool: asyncpg.Pool, sku: str, quantity: int) -> Reserv
+     try:
+         with telemetry.span("db.transaction"):
+             async with conn.transaction():
+-                with telemetry.span("db.select_stock"):
+-                    product = await conn.fetchrow(
+-                        "SELECT stock, price_cents FROM products WHERE sku = $1", sku
+-                    )
+-                if product is None:
+-                    raise UnknownProduct(sku)
+-                if product["stock"] < quantity:
+-                    raise InsufficientStock(product["stock"])
+-
+-                remaining = product["stock"] - quantity
+                 with telemetry.span("db.update_stock"):
+-                    await conn.execute(
+-                        "UPDATE products SET stock = $1, updated_at = now() WHERE sku = $2",
+-                        remaining,
++                    product = await conn.fetchrow(
++                        "UPDATE products SET stock = stock - $1, updated_at = now() "
++                        "WHERE sku = $2 AND stock >= $1 RETURNING stock, price_cents",
++                        quantity,
+                         sku,
+                     )
++                if product is None:
++                    stock = await conn.fetchval("SELECT stock FROM products WHERE sku = $1", sku)
++                    if stock is None:
++                        raise UnknownProduct(sku)
++                    raise InsufficientStock(stock)
++                remaining = product["stock"]
+                 with telemetry.span("db.insert_reservation"):
+                     reservation_id = await conn.fetchval(
+                         "INSERT INTO reservations (sku, quantity, unit_price_cents) "

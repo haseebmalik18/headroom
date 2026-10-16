@@ -1,0 +1,60 @@
+diff --git a/app/catalog.py b/app/catalog.py
+index 17ce6a4..cc12d33 100644
+--- a/app/catalog.py
++++ b/app/catalog.py
+@@ -24,32 +24,33 @@ async def category_products(pool: asyncpg.Pool, category_id: int) -> list[dict]:
+         category = await _query_row(conn, "SELECT id FROM categories WHERE id = $1", category_id)
+         if category is None:
+             raise UnknownCategory(category_id)
+-
+         products = await _query(
+-            conn,
+-            "SELECT id, name, price_cents FROM products WHERE category_id = $1 ORDER BY name",
+-            category_id,
++            conn, "SELECT id, name, price_cents FROM products WHERE category_id = $1 ORDER BY name", category_id
+         )
+-
+-        listing = []
+-        for product in products:
+-            rating = await _query_row(
++        ids = [p["id"] for p in products]
++        ratings = {
++            row["product_id"]: row
++            for row in await _query(
+                 conn,
+-                "SELECT avg(rating) AS rating_avg, count(*) AS review_count FROM reviews WHERE product_id = $1",
+-                product["id"],
+-            )
+-            stock = await _query_row(conn, "SELECT stock FROM inventory WHERE product_id = $1", product["id"])
+-            listing.append(
+-                {
+-                    "id": product["id"],
+-                    "name": product["name"],
+-                    "price_cents": product["price_cents"],
+-                    "rating_avg": _round(rating["rating_avg"]),
+-                    "review_count": rating["review_count"],
+-                    "stock": stock["stock"] if stock else 0,
+-                    "in_stock": bool(stock and stock["stock"] > 0),
+-                }
++                "SELECT product_id, avg(rating) AS rating_avg, count(*) AS review_count "
++                "FROM reviews WHERE product_id = ANY($1) GROUP BY product_id",
++                ids,
+             )
++        }
++        stocks = {
++            row["product_id"]: row["stock"]
++            for row in await _query(conn, "SELECT product_id, stock FROM inventory WHERE product_id = ANY($1)", ids)
++        }
++        listing = []
++        for product in products:
++            rating = ratings.get(product["id"])
++            stock = stocks.get(product["id"], 0)
++            listing.append({
++                "id": product["id"], "name": product["name"], "price_cents": product["price_cents"],
++                "rating_avg": _round(rating["rating_avg"]) if rating else None,
++                "review_count": rating["review_count"] if rating else 0,
++                "stock": stock, "in_stock": stock > 0,
++            })
+         return listing
+ 
+ 
