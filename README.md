@@ -15,9 +15,19 @@ Requires Docker (Compose v2) and [uv](https://docs.astral.sh/uv/).
 
 ```bash
 uv sync
-# Start the service, run its tests, load-test it, collect metrics, tear down, print JSON
-uv run hotpath benchmark examples/checkout-service
-uv run hotpath benchmark examples/checkout-service --concurrency 25,100,500 -o result.json
+cp .env.example .env        # add NEBIUS_API_KEY, then pick a model:
+uv run hotpath models       # Nemotron models available on your Token Factory account
+
+# The full autonomous investigation, ending at a verified patch awaiting approval
+uv run hotpath investigate examples/checkout-service
+uv run hotpath show latest      # replay the timeline and see the diff
+uv run hotpath approve latest   # human approval: apply the verified diff
+
+# Building blocks (no model needed)
+uv run hotpath benchmark examples/checkout-service --concurrency 25,100,500
+uv run hotpath experiment examples/checkout-service --concurrency 100,500 --measure db_activity,app_spans
+uv run hotpath race examples/checkout-service -c fix-a=a.diff -c fix-b=b.diff
+uv run hotpath verify examples/checkout-service --patch fix-b=b.diff --runs 10
 ```
 
 Each run happens in its own Docker Compose project (unique name and ports), and its
