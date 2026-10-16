@@ -5,6 +5,7 @@ Everything here is produced by deterministic parsing of tool output
 no model is involved in turning measurements into numbers.
 """
 
+import statistics
 import xml.etree.ElementTree as ET
 from datetime import datetime
 
@@ -14,6 +15,8 @@ from hotpath.config import Objective
 
 
 class TestFailure(BaseModel):
+    __test__ = False  # not a pytest test class
+
     name: str
     message: str
 
@@ -88,15 +91,26 @@ class BenchmarkResult(BaseModel):
 
     @property
     def primary(self) -> LoadRun | None:
-        """The run at the highest concurrency, which is what the SLO is judged on."""
+        """The first run at the highest concurrency, which is what the SLO is judged on."""
         return max(self.runs, key=lambda r: r.load.concurrency, default=None)
 
     @property
+    def primary_runs(self) -> list[LoadRun]:
+        """Every (repeated) run at the highest concurrency."""
+        if not self.runs:
+            return []
+        top = max(r.load.concurrency for r in self.runs)
+        return [r for r in self.runs if r.load.concurrency == top]
+
+    def median_load(self, field: str) -> float | None:
+        """Median of a LoadReport field across the primary runs (robust to one noisy run)."""
+        values = [getattr(r.load, field) for r in self.primary_runs]
+        return statistics.median(values) if values else None
+
+    @property
     def slo_met(self) -> bool | None:
-        run = self.primary
-        if run is None:
-            return None
-        return getattr(run.load, self.objective.metric) < self.objective.target
+        value = self.median_load(self.objective.metric)
+        return None if value is None else value < self.objective.target
 
     def summary(self) -> dict:
         """Flat headline numbers for the primary run."""
