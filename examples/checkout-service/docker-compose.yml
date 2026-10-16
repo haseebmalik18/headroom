@@ -13,10 +13,12 @@ services:
     ports:
       - "${DB_PORT:-5432}:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U checkout -d checkout"]
+      # TCP check: during first-time init Postgres only listens on its Unix socket.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U checkout -d checkout"]
       interval: 1s
       timeout: 3s
       retries: 30
+      start_period: 180s
 
   app:
     build:
