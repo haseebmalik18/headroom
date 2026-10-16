@@ -5,6 +5,7 @@ description = "An autonomous performance engineer that investigates SLO violatio
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "click==8.1.8",
     "httpx==0.28.1",
     "pydantic==2.10.3",
     "pyyaml==6.0.2",
