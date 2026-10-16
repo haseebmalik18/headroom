@@ -236,6 +236,80 @@ def show_command(
         console.print(store.outcome().diff, markup=False, highlight=False)
 
 
+@app.command("eval")
+def eval_command(
+    reference: Annotated[bool, typer.Option(help="Validate scenarios with hand-written reference fixes (no model)")] = False,
+    scenario: Annotated[Optional[list[str]], typer.Option(help="Only these scenarios (repeatable)")] = None,
+    repeats: Annotated[int, typer.Option(help="Load runs per candidate")] = 3,
+    verify_runs: Annotated[int, typer.Option(help="Verification runs (agent mode)")] = 5,
+    model: Annotated[Optional[str], typer.Option(help="Nemotron model id (agent mode)")] = None,
+) -> None:
+    """Run every evaluation scenario and print a scorecard."""
+    from datetime import datetime, timezone
+
+    from hotpath.evals import check_reference, load_scenarios, score_outcome
+
+    scenarios = [s for s in load_scenarios() if not scenario or s.name in scenario]
+    out_dir = Path("evals/results")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    log = lambda msg: console.print(f"[dim]›[/dim] {msg}")  # noqa: E731
+
+    if reference:
+        table = Table(title="Reference validation (no model)")
+        for column in ("scenario", "baseline violates SLO", "fixes behave as expected", "SLO recoverable", "winner"):
+            table.add_column(column)
+        checks = []
+        for s in scenarios:
+            console.print(f"\n[bold]{s.name}[/bold] ({s.repo})")
+            check = asyncio.run(check_reference(s, repeats=repeats, log=log))
+            checks.append(check)
+            _print_race(check.report)
+            mark = lambda ok: "[green]✓[/green]" if ok else "[red]✗[/red]"  # noqa: E731
+            table.add_row(s.name, mark(check.baseline_violates_slo),
+                          " ".join(f"{name} {mark(ok)}" for name, ok in check.fixes_as_expected.items()),
+                          mark(check.slo_recovered_by_reference), check.report.evaluation.winner or "-")
+        console.print(table)
+        (out_dir / f"reference-{stamp}.json").write_text(
+            "[" + ",".join(c.model_dump_json() for c in checks) + "]")
+        raise typer.Exit(0 if all(c.ok for c in checks) else 1)
+
+    from hotpath.agent.investigator import Investigator
+    from hotpath.agent.lab import LocalLab
+    from hotpath.agent.reasoner import NemotronReasoner
+    from hotpath.agent.store import InvestigationStore
+    from hotpath.models.nemotron import NemotronClient
+
+    scores = []
+    for s in scenarios:
+        console.print(f"\n[bold]{s.name}[/bold] ({s.repo})")
+        client = NemotronClient(model=model)
+        store = InvestigationStore.create(s.repo)
+
+        def on_event(event, store=store):
+            store.record(event)
+            print_event(event)
+
+        investigator = Investigator(NemotronReasoner(client, s.repo),
+                                    LocalLab(s.repo, race_repeats=repeats, verify_runs=verify_runs), on_event=on_event)
+        outcome = asyncio.run(investigator.run())
+        store.save_outcome(outcome, client.calls)
+        scores.append(score_outcome(s, outcome))
+
+    table = Table(title="HotPath evaluation")
+    for column in ("scenario", "root cause identified", "valid fix", "SLO recovered", "supported hypothesis"):
+        table.add_column(column)
+    mark = lambda ok: "[green]✓[/green]" if ok else "[red]✗[/red]"  # noqa: E731
+    for sc in scores:
+        table.add_row(sc.scenario, mark(sc.root_cause_identified), mark(sc.valid_fix_generated),
+                      mark(sc.slo_recovered), sc.supported_hypothesis or "-")
+    console.print(table)
+    console.print(f"root cause {sum(s.root_cause_identified for s in scores)}/{len(scores)} · "
+                  f"valid fix {sum(s.valid_fix_generated for s in scores)}/{len(scores)} · "
+                  f"SLO recovered {sum(s.slo_recovered for s in scores)}/{len(scores)}")
+    (out_dir / f"agent-{stamp}.json").write_text("[" + ",".join(s.model_dump_json() for s in scores) + "]")
+
+
 @app.command("models")
 def models_command() -> None:
     """List the models your Nebius Token Factory key can use (Nemotron first)."""
