@@ -5,6 +5,7 @@ A Nebius Serverless Jobs backend implements the same protocol.
 """
 
 from collections.abc import Callable
+from fnmatch import fnmatch
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Protocol
@@ -16,6 +17,10 @@ from hotpath.benchmark.results import BenchmarkResult
 from hotpath.benchmark.runner import run_benchmark
 from hotpath.config import Workload, load_config
 from hotpath.execution.worktrees import PatchError, Workspace
+
+
+def protected_changes(changed: list[str], protected: list[str]) -> list[str]:
+    return [path for path in changed if any(fnmatch(path, pattern) for pattern in protected)]
 
 
 class CandidateRun(BaseModel):
@@ -56,6 +61,15 @@ class LocalExecutionBackend:
             diff = workspace.diff()
             changed = workspace.changed_files()
             self.log(f"[{candidate.name}] patched {', '.join(changed) or 'nothing'}")
+            protected = protected_changes(changed, load_config(self.repo).runtime.protected_paths)
+            if protected:
+                return CandidateRun(
+                    candidate=candidate, diff=diff, changed_files=changed,
+                    result=_failed(self.repo, candidate.name, f"modifies protected files: {', '.join(protected)}"),
+                )
+            if not changed:
+                return CandidateRun(candidate=candidate, diff="", changed_files=[],
+                                    result=_failed(self.repo, candidate.name, "patch changes nothing"))
             result = await run_benchmark(
                 workspace.path,
                 label=candidate.name,

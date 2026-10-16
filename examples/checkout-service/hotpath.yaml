@@ -27,3 +27,13 @@ runtime:
   load_service: k6
   load_script: /load/reserve.js
   metrics_path: /metrics
+  # A candidate fix may never modify these: they decide correctness and speed.
+  protected_paths:
+    - tests/*
+    - load/*
+    - scripts/*
+    - hotpath.yaml
+    - docker-compose.yml
+    - Dockerfile
+    - db/Dockerfile
+    - db/network-entrypoint.sh

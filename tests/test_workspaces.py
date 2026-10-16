@@ -90,3 +90,12 @@ def test_create_replaces_stale_workspace(source, tmp_path):
     second = Workspace.create(source, tmp_path / "worktrees", "same")
 
     assert not (second.path / "junk.txt").exists()
+
+
+def test_protected_changes():
+    from hotpath.execution.backend import protected_changes
+
+    changed = ["app/inventory.py", "tests/test_inventory_concurrency.py", "hotpath.yaml", "db/schema.sql"]
+    protected = ["tests/*", "load/*", "hotpath.yaml", "Dockerfile"]
+
+    assert protected_changes(changed, protected) == ["tests/test_inventory_concurrency.py", "hotpath.yaml"]

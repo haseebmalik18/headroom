@@ -38,6 +38,8 @@ class Runtime(BaseModel):
     load_service: str = "k6"
     load_script: str
     metrics_path: str | None = "/metrics"
+    # Files a candidate patch may never modify: the judges of correctness and speed.
+    protected_paths: list[str] = ["tests/*", "load/*", "hotpath.yaml", "docker-compose.yml", "Dockerfile"]
 
 
 class ProjectConfig(BaseModel):
