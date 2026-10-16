@@ -1,0 +1,64 @@
+services:
+  db:
+    build: ./db
+    environment:
+      POSTGRES_USER: catalog
+      POSTGRES_PASSWORD: catalog
+      POSTGRES_DB: catalog
+      # Network latency on database responses, modelling a DB on its own host
+      # (Docker's in-VM bridge is ~0.06ms RTT; real deployments are 0.3-1ms).
+      DB_NETWORK_DELAY: ${DB_NETWORK_DELAY:-500us}
+    cap_add:
+      - NET_ADMIN
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    healthcheck:
+      # TCP check: during first-time init Postgres only listens on its Unix socket.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U catalog -d catalog"]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+      start_period: 180s
+
+  app:
+    build:
+      context: .
+      target: runtime
+    environment:
+      DATABASE_URL: postgresql://catalog:catalog@db:5432/catalog
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+
+  tests:
+    build:
+      context: .
+      target: test
+    environment:
+      BASE_URL: http://app:8000
+      DATABASE_URL: postgresql://catalog:catalog@db:5432/catalog
+    volumes:
+      - ${RESULTS_DIR:-./results}:/results
+    depends_on:
+      app:
+        condition: service_healthy
+    profiles: ["tools"]
+
+  k6:
+    image: grafana/k6:0.54.0
+    environment:
+      BASE_URL: http://app:8000
+    volumes:
+      - ./load:/load:ro
+      - ${RESULTS_DIR:-./results}:/results
+    depends_on:
+      app:
+        condition: service_healthy
+    profiles: ["tools"]
