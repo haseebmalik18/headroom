@@ -61,7 +61,7 @@ class ExperimentResult(BaseModel):
                 details.append(
                     f"database: active connections avg {db.active_connections_avg} (max {db.active_connections_max}) "
                     f"of {db.pool_connections_max} open; idle-in-transaction avg {db.idle_in_transaction_avg}; "
-                    f"commits/s {db.commits_per_s}; wait events: {waits}"
+                    f"transactions/s (all, incl. driver housekeeping) {db.commits_per_s}; wait events: {waits}"
                 )
             if lv.spans is not None:
                 top = sorted(lv.spans.items(), key=lambda kv: -kv[1].p99_ms)
