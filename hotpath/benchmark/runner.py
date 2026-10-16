@@ -69,10 +69,11 @@ async def run_benchmark(
                 result.error = "test suite did not run"
                 return result
 
-        for workload in workloads:
-            log(f"load: {workload.concurrency} concurrent, think {workload.think_ms:g}ms, "
+        for index, workload in enumerate(workloads, start=1):
+            log(f"load {index}/{len(workloads)}: {workload.concurrency} concurrent, think {workload.think_ms:g}ms, "
                 f"{workload.duration} after {workload.warmup} warmup")
-            run = await _run_load(project, config, workload, results_dir, collect_stats)
+            run = await _run_load(project, config, workload, results_dir, collect_stats,
+                                  label=f"load-{index}-c{workload.concurrency}")
             result.runs.append(run)
             log(f"load: p99 {run.load.p99_ms:.1f}ms, {run.load.throughput_rps:.1f} rps, "
                 f"errors {run.load.error_rate:.2%}")
@@ -103,9 +104,8 @@ async def _run_tests(project: ComposeProject, config: ProjectConfig, results_dir
 
 
 async def _run_load(project: ComposeProject, config: ProjectConfig, workload: Workload,
-                    results_dir: Path, collect_stats: bool) -> LoadRun:
+                    results_dir: Path, collect_stats: bool, label: str) -> LoadRun:
     runtime = config.runtime
-    label = f"load-{workload.concurrency}"
     app_url = f"http://127.0.0.1:{project.app_port}"
 
     containers = {"app": await project.container_id(runtime.app_service)}
