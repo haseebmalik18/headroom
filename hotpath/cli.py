@@ -7,7 +7,8 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from hotpath.agent.schemas import PatchCandidate
+from hotpath.agent.experiments import run_experiment
+from hotpath.agent.schemas import ExperimentPlan, PatchCandidate, Prediction
 from hotpath.benchmark.race import RaceReport, race
 from hotpath.benchmark.results import BenchmarkResult
 from hotpath.benchmark.runner import run_benchmark
@@ -98,6 +99,174 @@ def race_command(
     if output:
         output.write_text(report.model_dump_json(indent=2))
         console.print(f"[dim]race report written to {output}[/dim]")
+
+
+@app.command("investigate")
+def investigate_command(
+    repo: Annotated[Path, typer.Argument(help="Repository containing hotpath.yaml")],
+    model: Annotated[Optional[str], typer.Option(help="Nemotron model id on Token Factory (default: NEMOTRON_MODEL)")] = None,
+    warmup: Annotated[str, typer.Option(help="Warmup before each measured run")] = "5s",
+    duration: Annotated[str, typer.Option(help="Measured duration of each run")] = "20s",
+    race_repeats: Annotated[int, typer.Option(help="Load runs per candidate in the race")] = 3,
+    verify_runs: Annotated[int, typer.Option(help="Repeated runs when verifying the winner")] = 5,
+    max_hypotheses: Annotated[int, typer.Option()] = 4,
+    max_experiments: Annotated[int, typer.Option()] = 5,
+    max_patch_rounds: Annotated[int, typer.Option()] = 3,
+    verbose: Annotated[bool, typer.Option("--verbose", "-v", help="Show low-level execution logs")] = False,
+) -> None:
+    """Investigate an SLO violation end to end and stop at a verified patch awaiting approval."""
+    from hotpath.agent.investigator import Investigator
+    from hotpath.agent.lab import LocalLab
+    from hotpath.agent.reasoner import NemotronReasoner
+    from hotpath.agent.state import Budget
+    from hotpath.agent.store import InvestigationStore
+    from hotpath.models.nemotron import NemotronClient
+
+    try:
+        client = NemotronClient(model=model)
+    except RuntimeError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(2)
+    if not client.model:
+        console.print("[red]No model selected:[/red] set NEMOTRON_MODEL in .env or pass --model (see `hotpath models`)")
+        raise typer.Exit(2)
+    store = InvestigationStore.create(repo)
+    log = (lambda msg: console.print(f"  [dim]{msg}[/dim]")) if verbose else (lambda _: None)
+    lab = LocalLab(repo, warmup=warmup, duration=duration, race_repeats=race_repeats, verify_runs=verify_runs, log=log)
+
+    def on_event(event):
+        store.record(event)
+        print_event(event)
+
+    console.print(f"[bold]HotPath[/bold] · reasoning with [bold]{client.model}[/bold] via Nebius Token Factory")
+    investigator = Investigator(
+        NemotronReasoner(client, repo), lab,
+        Budget(max_hypotheses=max_hypotheses, max_experiments=max_experiments, max_patch_rounds=max_patch_rounds),
+        on_event=on_event,
+    )
+    outcome = asyncio.run(investigator.run())
+    store.save_outcome(outcome, client.calls)
+    tokens = sum(c.prompt_tokens + c.completion_tokens for c in client.calls)
+    console.print(f"[dim]{len(client.calls)} Nemotron calls, {tokens:,} tokens · saved to {store.path}[/dim]")
+    if outcome.diff:
+        console.print(f"Review with [bold]hotpath show {store.path.name}[/bold], "
+                      f"apply with [bold]hotpath approve {store.path.name}[/bold]")
+
+
+@app.command("approve")
+def approve_command(
+    investigation: Annotated[str, typer.Argument(help="Investigation id, path, or 'latest'")] = "latest",
+    yes: Annotated[bool, typer.Option("--yes", "-y", help="Apply without asking")] = False,
+) -> None:
+    """Human approval: show the verified diff and apply it to the real repository."""
+    from hotpath.agent.state import Phase
+    from hotpath.agent.store import InvestigationStore, apply_to_repository
+
+    store = InvestigationStore.open(investigation)
+    outcome = store.outcome()
+    if outcome.phase != Phase.AWAITING_APPROVAL or not outcome.diff:
+        console.print(f"[red]Nothing to approve:[/red] investigation ended in {outcome.phase.value}")
+        raise typer.Exit(1)
+    console.print(outcome.diff, markup=False, highlight=False)
+    if not yes and not typer.confirm(f"Apply {outcome.winner} to {store.repo}?"):
+        raise typer.Exit(1)
+    changed = apply_to_repository(store.repo, outcome.diff)
+    console.print(f"[green]Applied[/green] {outcome.winner}: {', '.join(changed)}")
+
+
+def print_event(event) -> None:
+    kind, data = event.kind, event.data
+    if kind == "phase":
+        console.print(f"\n[bold cyan]▶ {event.message}[/bold cyan]")
+    elif kind == "baseline":
+        verdict = "[green]SLO MET[/green]" if data.get("slo_met") else "[bold red]SLO VIOLATED[/bold red]"
+        console.print(f"  {event.message}  {verdict}")
+    elif kind == "hypothesis":
+        h = data["hypothesis"]
+        console.print(f"  [bold]Hypothesis {h['id']}[/bold] {h['title']}  [dim](confidence {h['confidence']:.0%})[/dim]")
+    elif kind == "experiment":
+        console.print(f"  [dim]{event.message}[/dim]")
+    elif kind == "conclusion":
+        c = data["conclusion"]
+        style = {"supported": "green", "disproved": "red"}.get(c["verdict"], "yellow")
+        console.print(f"  [bold {style}]{event.message}[/bold {style}]")
+        for obs in c["key_observations"]:
+            console.print(f"    · {obs}")
+    elif kind == "root_cause":
+        console.print(f"  [bold green]✓ {event.message}[/bold green]")
+    elif kind == "candidate":
+        console.print(f"  {event.message}")
+    elif kind == "race":
+        ev = data["evaluation"]
+        for c in ev["candidates"]:
+            p99 = f"{c['p99_ms']:.0f}ms" if c["p99_ms"] is not None else "-"
+            tests = f"{c['tests_passed']}/{c['tests_total']}" if c["tests_total"] else "-"
+            label = c["status"].upper()
+            if c["name"] == ev["fastest_rejected"]:
+                label = "FASTEST · REJECTED"
+            style = {"winner": "bold green", "valid": "yellow", "rejected": "bold red"}[c["status"]]
+            console.print(f"  {c['name']:<24} tests {tests:<6} p99 {p99:<8} [{style}]{label}[/{style}]")
+            for reason in c["reasons"]:
+                console.print(f"    [red]{reason}[/red]")
+    elif kind == "verification":
+        r = data["report"]
+        cand, base = r["candidate"]["metric"], (r["baseline"] or {}).get("metric")
+        if base:
+            console.print(f"  baseline median {base['median']:.0f}ms (95% CI {base['ci_low']:.0f}–{base['ci_high']:.0f})")
+        console.print(f"  patched  median {cand['median']:.0f}ms (95% CI {cand['ci_low']:.0f}–{cand['ci_high']:.0f}) "
+                      f"over {r['candidate']['runs']} runs")
+        style = "bold green" if r["slo_recovered"] else "bold red"
+        console.print(f"  [{style}]{event.message}[/{style}]")
+    else:
+        console.print(f"  [dim]{event.message}[/dim]")
+
+
+@app.command("show")
+def show_command(
+    investigation: Annotated[str, typer.Argument(help="Investigation id, path, or 'latest'")] = "latest",
+) -> None:
+    """Replay an investigation's timeline and show its verified diff."""
+    from hotpath.agent.store import InvestigationStore
+
+    store = InvestigationStore.open(investigation)
+    for event in store.events():
+        print_event(event)
+    if (store.path / "outcome.json").exists() and store.outcome().diff:
+        console.print("\n[bold]Verified diff[/bold]")
+        console.print(store.outcome().diff, markup=False, highlight=False)
+
+
+@app.command("models")
+def models_command() -> None:
+    """List the models your Nebius Token Factory key can use (Nemotron first)."""
+    from hotpath.models.nemotron import NemotronClient
+
+    models = asyncio.run(NemotronClient(model="-").list_models())
+    for name in sorted(models, key=lambda m: ("nemotron" not in m.lower(), m)):
+        style = "bold green" if "nemotron" in name.lower() else "dim"
+        console.print(f"[{style}]{name}[/{style}]")
+
+
+@app.command("experiment")
+def experiment_command(
+    repo: Annotated[Path, typer.Argument(help="Repository containing hotpath.yaml")],
+    concurrency: Annotated[str, typer.Option(help="Concurrency levels, comma-separated")] = "100,500",
+    measure: Annotated[
+        str, typer.Option(help="Instruments: app_spans,container_resources,db_activity")
+    ] = "container_resources,db_activity",
+    warmup: Annotated[str, typer.Option(help="Warmup before measuring")] = "5s",
+    duration: Annotated[str, typer.Option(help="Measured duration per level")] = "20s",
+) -> None:
+    """Run a hand-written experiment plan and print the evidence exactly as the model would see it."""
+    plan = ExperimentPlan(
+        rationale="manual experiment",
+        concurrency_levels=[int(c) for c in concurrency.split(",")],
+        measurements=[m.strip() for m in measure.split(",") if m.strip()],
+        predictions=[Prediction(observation="manual", if_supported="-", if_refuted="-")],
+    )
+    log = lambda msg: console.print(f"[dim]›[/dim] {msg}")  # noqa: E731
+    result = asyncio.run(run_experiment(repo, plan, warmup=warmup, duration=duration, log=log))
+    console.print(result.render())
 
 
 @app.command("verify")
