@@ -44,7 +44,10 @@ async def run_benchmark(
     name = project_name(label)
     results_dir = (Path(out_dir) / name).resolve()
     results_dir.mkdir(parents=True, exist_ok=True)
-    project = ComposeProject(repo, config.runtime.compose_file, name, results_dir)
+    # Containers write their reports here as their own users (k6 runs as uid 12345). Docker
+    # Desktop ignores bind-mount ownership, but Linux hosts enforce it.
+    results_dir.chmod(0o777)
+    project =ComposeProject(repo, config.runtime.compose_file, name, results_dir)
 
     result = BenchmarkResult(
         service=config.service,
