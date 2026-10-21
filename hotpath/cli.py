@@ -108,7 +108,7 @@ def investigate_command(
     warmup: Annotated[str, typer.Option(help="Warmup before each measured run")] = "5s",
     duration: Annotated[str, typer.Option(help="Measured duration of each run")] = "20s",
     race_repeats: Annotated[int, typer.Option(help="Load runs per candidate in the race")] = 3,
-    verify_runs: Annotated[int, typer.Option(help="Repeated runs when verifying the winner")] = 5,
+    verify_runs: Annotated[int, typer.Option(help="Repeated runs when verifying the winner (7+ so a single outlier run cannot decide)")] = 7,
     max_hypotheses: Annotated[int, typer.Option()] = 4,
     max_experiments: Annotated[int, typer.Option()] = 5,
     max_patch_rounds: Annotated[int, typer.Option()] = 3,
@@ -241,7 +241,7 @@ def eval_command(
     reference: Annotated[bool, typer.Option(help="Validate scenarios with hand-written reference fixes (no model)")] = False,
     scenario: Annotated[Optional[list[str]], typer.Option(help="Only these scenarios (repeatable)")] = None,
     repeats: Annotated[int, typer.Option(help="Load runs per candidate")] = 3,
-    verify_runs: Annotated[int, typer.Option(help="Verification runs (agent mode)")] = 5,
+    verify_runs: Annotated[int, typer.Option(help="Verification runs (agent mode)")] = 7,
     model: Annotated[Optional[str], typer.Option(help="Nemotron model id (agent mode)")] = None,
 ) -> None:
     """Run every evaluation scenario and print a scorecard."""

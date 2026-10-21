@@ -34,6 +34,13 @@ def test_bootstrap_ci_narrows_with_less_spread():
     assert (tight_hi - tight_lo) < (wide_hi - wide_lo)
 
 
+def test_one_outlier_run_sets_the_upper_bound_of_five_runs_but_not_seven():
+    # Why verification defaults to 7 runs: with 5, one stalled run alone fails verification.
+    assert bootstrap_ci([14, 15, 14, 18, 114])[1] == 114
+    assert bootstrap_ci([14, 15, 14, 18, 16, 14, 114])[1] < 20
+    assert bootstrap_ci([14, 15, 14, 18, 16, 14, 114, 120])[1] > 50  # two outliers still count
+
+
 def test_single_value_has_degenerate_interval():
     d = describe([42.0])
 

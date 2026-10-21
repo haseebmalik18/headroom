@@ -22,7 +22,7 @@ class LocalLab:
         warmup: str = "5s",
         duration: str = "20s",
         race_repeats: int = 3,
-        verify_runs: int = 5,
+        verify_runs: int = 7,
         backend: ExecutionBackend | None = None,
         log: Callable[[str], None] = lambda _: None,
     ):
