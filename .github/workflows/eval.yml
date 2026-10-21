@@ -1,0 +1,74 @@
+# Runs the evaluation scenarios, one runner per scenario so their benchmarks never share CPU.
+#   reference: hand-written fixes only (no model) -- checks each scenario is calibrated on this hardware
+#   agent:     full HotPath investigations with Nemotron, scored against the ground truth
+name: Eval
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: reference (no model) or agent (Nemotron)
+        type: choice
+        options: [reference, agent]
+        default: reference
+      scenarios:
+        description: Space-separated scenario names from evals/scenarios.yaml
+        default: lock-contention n-plus-one blocking-event-loop sequential-queries
+      model:
+        description: Nemotron model on Nebius Token Factory (agent mode)
+        default: nvidia/Nemotron-3-Ultra-550b-a55b
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      scenarios: ${{ steps.list.outputs.scenarios }}
+    steps:
+      - id: list
+        env:
+          SCENARIOS: ${{ inputs.scenarios }}
+        run: echo "scenarios=$(jq -cn --arg s "$SCENARIOS" '$s | split(" ") | map(select(length > 0))')" >> "$GITHUB_OUTPUT"
+
+  eval:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      matrix:
+        scenario: ${{ fromJSON(needs.plan.outputs.scenarios) }}
+    env:
+      COLUMNS: "120"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+
+      - run: uv sync --frozen
+
+      - name: Evaluate
+        env:
+          NEBIUS_API_KEY: ${{ secrets.NEBIUS_API_KEY }}
+          NEMOTRON_MODEL: ${{ inputs.model }}
+          SCENARIO: ${{ matrix.scenario }}
+          MODE: ${{ inputs.mode }}
+        run: |
+          if [ "$MODE" = reference ]; then
+            uv run hotpath eval --reference --scenario "$SCENARIO"
+          else
+            uv run hotpath eval --scenario "$SCENARIO"
+          fi
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: eval-${{ inputs.mode }}-${{ matrix.scenario }}
+          include-hidden-files: true
+          if-no-files-found: warn
+          path: |
+            evals/results/
+            .hotpath/investigations/
+            .hotpath/runs/
