@@ -117,6 +117,7 @@ async def test_generate_candidates_lists_protected_files_and_tests():
     assert "tests/test_inventory_concurrency.py::test_concurrent_reservations_never_oversell" in prompt
     assert "- tests/*" in prompt
     assert "MATERIALLY DIFFERENT" in prompt
+    assert "keep its existing function signatures" in prompt
 
 
 def test_previous_races_explain_a_failed_verification():

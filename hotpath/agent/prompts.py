@@ -71,6 +71,8 @@ Decisive observations:
 Task: write {count} MATERIALLY DIFFERENT fixes for this root cause. They must use different strategies, \
 not small variations of one idea. Each fix must:
 - address the root cause above, keep the API and behaviour identical, and preserve correctness under concurrency;
+- be a change to the code shown above: keep its existing function signatures, imports, names, tables and columns \
+unless the fix itself changes them, and change only the files the fix needs;
 - give the COMPLETE new contents of every file it changes (no diffs, no ellipses, no placeholders);
 - only change application source (not tests, load tests, build or deployment files).
 State honestly in `risks` what could go wrong with each approach.
