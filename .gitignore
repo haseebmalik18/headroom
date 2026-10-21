@@ -10,3 +10,5 @@ results/
 node_modules/
 .DS_Store
 evals/results/
+PROGRESS.md
+docs/hackathon-feedback.md

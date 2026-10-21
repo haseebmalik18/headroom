@@ -7,7 +7,7 @@ experiments, and ships only verified fixes.**
 
 Built for the Nebius x NVIDIA Global AI Hackathon 2026 (Coding and Agentic Engineering track).
 
-Status: early development. See [PROGRESS.md](PROGRESS.md).
+Status: early development.
 
 ## Quick start
 
@@ -43,5 +43,3 @@ A target repository describes its objective and how to run it in a `hotpath.yaml
 | `hotpath/` | The HotPath package: config, benchmark runner, Docker execution, telemetry, CLI |
 | `tests/` | Unit tests for HotPath itself |
 | `examples/checkout-service/` | Demo target: FastAPI + Postgres service with a real lock-contention SLO violation |
-| `docs/` | Notes, including hackathon feedback |
-| `PROGRESS.md` | Living progress log and submission checklist |
