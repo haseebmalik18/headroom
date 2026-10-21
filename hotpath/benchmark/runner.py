@@ -60,7 +60,10 @@ async def run_benchmark(
         try:
             await project.up(config.runtime.app_service)
         except CommandError as exc:
-            result.error = f"service failed to start: {exc}"
+            # The compose output only says the container exited; the traceback is in its own logs.
+            logs = await project.logs(config.runtime.app_service)
+            result.error = (f"service failed to start; last lines of the {config.runtime.app_service} logs:\n{logs}"
+                            if logs else f"service failed to start: {exc}")
             return result
 
         if run_tests:

@@ -87,6 +87,11 @@ class ComposeProject:
         return await self.compose("run", "--rm", "--build", *flags, service, *command,
                                   timeout=timeout, check=check)
 
+    async def logs(self, service: str, tail: int = 40) -> str:
+        result = await self.compose("logs", "--no-color", "--no-log-prefix", "--tail", str(tail), service,
+                                    timeout=30, check=False)
+        return result.output.strip()
+
     async def container_id(self, service: str) -> str | None:
         result = await self.compose("ps", "-q", service, check=False)
         lines = result.output.split()
