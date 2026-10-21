@@ -1,0 +1,64 @@
+# Runs a full HotPath investigation on a clean x86 runner and keeps the evidence.
+# Manual trigger only, so model credits are spent only when someone with write access asks.
+name: Investigate
+
+on:
+  workflow_dispatch:
+    inputs:
+      service:
+        description: Directory containing hotpath.yaml
+        default: examples/checkout-service
+      model:
+        description: Nemotron model on Nebius Token Factory
+        default: nvidia/Nemotron-3-Ultra-550b-a55b
+      args:
+        description: Extra arguments for `hotpath investigate`
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: investigate
+
+jobs:
+  investigate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    env:
+      COLUMNS: "120"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+
+      - run: uv sync --frozen
+
+      - name: Describe the runner
+        run: |
+          nproc
+          free -h
+          docker compose version
+          df -h /
+
+      - name: Investigate
+        env:
+          NEBIUS_API_KEY: ${{ secrets.NEBIUS_API_KEY }}
+          NEMOTRON_MODEL: ${{ inputs.model }}
+          SERVICE: ${{ inputs.service }}
+          ARGS: ${{ inputs.args }}
+        run: uv run hotpath investigate "$SERVICE" $ARGS
+
+      - name: Replay the timeline
+        if: always()
+        run: uv run hotpath show latest || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: investigation
+          include-hidden-files: true
+          if-no-files-found: warn
+          path: |
+            .hotpath/investigations/
+            .hotpath/runs/
