@@ -118,7 +118,7 @@ def investigate_command(
     from hotpath.agent.investigator import Investigator
     from hotpath.agent.lab import LocalLab
     from hotpath.agent.reasoner import NemotronReasoner
-    from hotpath.agent.state import Budget
+    from hotpath.agent.state import Budget, Phase
     from hotpath.agent.store import InvestigationStore
     from hotpath.models.nemotron import NemotronClient
 
@@ -151,6 +151,8 @@ def investigate_command(
     if outcome.diff:
         console.print(f"Review with [bold]hotpath show {store.path.name}[/bold], "
                       f"apply with [bold]hotpath approve {store.path.name}[/bold]")
+    if outcome.phase == Phase.UNRESOLVED:
+        raise typer.Exit(1)
 
 
 @app.command("approve")
