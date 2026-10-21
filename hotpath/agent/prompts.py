@@ -21,7 +21,9 @@ INSTRUMENTS = """Instruments HotPath can run for an experiment (client latency a
 - container_resources: average CPU % and peak memory of each container (app, db)
 - db_activity: from PostgreSQL itself: active client connections (avg/max), idle-in-transaction connections, \
 open connections, transactions per second (all committed transactions, including driver housekeeping such as connection resets), and the wait events of active connections
-An experiment runs the service's real load test at 1 to 4 concurrency levels (between 1 and 1000 concurrent users)."""
+An experiment runs the service's real load test at 1 to 4 concurrency levels (between 1 and 1000 concurrent users).
+Experiments are observational: they measure the CURRENT, unmodified code. Nothing can be changed, removed or patched \
+during an experiment; fixes are only tested later, in a separate race."""
 
 FORM_HYPOTHESES = """{context}
 
@@ -29,8 +31,8 @@ FORM_HYPOTHESES = """{context}
 
 Task: propose up to {limit} competing hypotheses for why the objective is violated, ranked by your confidence.
 - Each hypothesis must explain the evidence above and must be testable with ONE experiment using the instruments.
-- Each experiment must include concrete predictions: what a specific measurement shows if the hypothesis is true, \
-and what it shows if it is false.
+- Each experiment must include concrete predictions: what a specific measurement OF THE CURRENT CODE shows if the \
+hypothesis is true, and what it shows if it is false. Never predict what the service would do after a fix.
 - If earlier hypotheses were disproved, do not repeat them; use what their experiments revealed.
 - Confidence is your honest prior probability (0 to 1) given the evidence so far.
 
@@ -52,6 +54,9 @@ Predictions:
 Task: compare each prediction with what was measured and decide whether the hypothesis is supported, disproved, \
 or the experiment was inconclusive. Put the decisive measured facts, with numbers, in key_observations. \
 Use high confidence only when the measurements clearly discriminate.
+The experiment measured the unmodified code; nothing was changed. If a prediction describes the service after a fix, \
+it cannot be tested this way: judge the hypothesis from what the measurements reveal about the current code instead, \
+and never describe a change as having been made.
 
 Return JSON matching ExperimentConclusion with hypothesis_id "{hypothesis_id}"."""
 
