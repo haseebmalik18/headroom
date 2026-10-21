@@ -87,6 +87,9 @@ async def run_benchmark(
                 f"errors {run.load.error_rate:.2%}")
     except CommandError as exc:
         result.error = str(exc)
+    except httpx.HTTPError as exc:
+        logs = await project.logs(config.runtime.app_service)
+        result.error = f"service stopped responding ({exc!r}); last lines of the {config.runtime.app_service} logs:\n{logs}"
     finally:
         result.finished_at = datetime.now(timezone.utc)
         (results_dir / "result.json").write_text(result.model_dump_json(indent=2))
