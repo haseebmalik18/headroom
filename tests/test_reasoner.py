@@ -8,10 +8,14 @@ import httpx
 
 from hotpath.agent.experiments import ExperimentResult, LevelObservation
 from hotpath.agent.investigator import Context, NotebookEntry
-from hotpath.agent.reasoner import NemotronReasoner
-from hotpath.agent.schemas import ExperimentPlan, Hypothesis, Prediction
+from hotpath.agent.reasoner import NemotronReasoner, render_previous_races
+from hotpath.agent.schemas import ExperimentPlan, Hypothesis, PatchCandidate, Prediction
+from hotpath.benchmark.evaluator import evaluate
+from hotpath.benchmark.race import RaceReport
 from hotpath.benchmark.results import BenchmarkResult, ContainerUsage, LoadReport, LoadRun, TestReport
-from hotpath.config import Objective
+from hotpath.benchmark.verify import build_report
+from hotpath.config import Constraints, Objective
+from hotpath.execution.backend import CandidateRun
 from hotpath.models.nemotron import NemotronClient
 from hotpath.repository.analyzer import analyze
 
@@ -40,6 +44,12 @@ def _context() -> Context:
                                                                   memory_mb_max=70, samples=3)})],
     )
     return Context(repo_map=analyze(CHECKOUT), baseline=baseline)
+
+
+def _run(p99: float) -> LoadRun:
+    return LoadRun(load=LoadReport(label="l", vus=500, think_ms=2000, duration_s=20, requests=100, p50_ms=p99,
+                                   p95_ms=p99, p99_ms=p99, max_ms=p99, avg_ms=p99, throughput_rps=250,
+                                   error_rate=0.0))
 
 
 def _reasoner(reply: dict, seen: list) -> NemotronReasoner:
@@ -107,3 +117,20 @@ async def test_generate_candidates_lists_protected_files_and_tests():
     assert "tests/test_inventory_concurrency.py::test_concurrent_reservations_never_oversell" in prompt
     assert "- tests/*" in prompt
     assert "MATERIALLY DIFFERENT" in prompt
+
+
+def test_previous_races_explain_a_failed_verification():
+    context = _context()
+    candidate = PatchCandidate(name="row-locks", strategy="SELECT ... FOR UPDATE", expected_effect="parallel")
+    result = context.baseline.model_copy(update={"label": "row-locks", "runs": [_run(14)]})
+    evaluation = evaluate(context.baseline, {"row-locks": result}, context.baseline.objective, Constraints())
+    context.races.append(RaceReport(baseline=context.baseline, evaluation=evaluation, runs=[
+        CandidateRun(candidate=candidate, diff="d", changed_files=["app/inventory.py"], result=result)]))
+    spiky = result.model_copy(update={"runs": [_run(p) for p in [14, 15, 14, 18, 114]]})
+    context.verifications.append(build_report(spiky, context.baseline.objective, context.baseline))
+
+    text = render_previous_races(context)
+
+    assert "- row-locks (SELECT ... FOR UPDATE): winner; p99 14 ms" in text
+    assert "per run 14, 15, 14, 18, 114 ms" in text
+    assert "4 of 5 runs met the 100 ms target -> not verified" in text

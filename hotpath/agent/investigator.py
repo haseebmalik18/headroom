@@ -41,6 +41,7 @@ class Context(BaseModel):
     notebook: list[NotebookEntry] = []
     root_cause: NotebookEntry | None = None
     races: list[RaceReport] = []
+    verifications: list[VerificationReport] = []
 
 
 class Reasoner(Protocol):
@@ -166,6 +167,7 @@ class Investigator:
             if evaluation.winner and evaluation.slo_recovered:
                 self.emit(Phase.VERIFY_WINNER, "phase", f"Verifying {evaluation.winner} with repeated runs")
                 verification = await self.lab.verify(report)
+                context.verifications.append(verification)
                 self.emit(Phase.VERIFY_WINNER, "verification",
                           "SLO recovered" if verification.slo_recovered else "Verification did not hold up",
                           report=verification.model_dump())

@@ -58,6 +58,7 @@ class ScriptedReasoner:
                                     key_observations=["db active connections avg 1.0"], explanation="x")
 
     async def generate_candidates(self, context, count):
+        self.seen_verifications = [v.candidate.label for v in context.verifications]
         return self.candidate_rounds.pop(0)
 
 
@@ -207,3 +208,25 @@ async def test_unresolved_when_verification_does_not_hold():
 
     assert outcome.phase == Phase.UNRESOLVED
     assert "no candidate recovered the SLO" in outcome.reason
+
+
+async def test_next_round_sees_why_verification_failed():
+    reasoner = ScriptedReasoner(
+        hypothesis_rounds=[[hypothesis("H1", "Lock contention", 0.8)]],
+        verdicts={"H1": ("supported", 0.95)},
+        candidate_rounds=[[candidate("spiky")], [candidate("steady")]],
+    )
+
+    class Lab(FakeLab):
+        async def verify(self, race):
+            winner = race.evaluation.winner
+            p99s = [14, 15, 14, 18, 114] if winner == "spiky" else [20, 22, 19, 25, 21]
+            return build_report(bench(winner, p99s), OBJECTIVE, bench("baseline", [3800, 3900, 4000]))
+
+    lab = Lab(candidate_results={"spiky": bench("spiky", [14]), "steady": bench("steady", [21])})
+
+    outcome = await Investigator(reasoner, lab).run()
+
+    assert outcome.winner == "steady"
+    assert reasoner.seen_verifications == ["spiky"]
+    assert [v.slo_recovered for v in outcome.context.verifications] == [False, True]

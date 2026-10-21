@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 from hotpath.agent import prompts
 from hotpath.agent.investigator import Context, NotebookEntry
 from hotpath.agent.schemas import ExperimentConclusion, Hypothesis, PatchCandidate
+from hotpath.benchmark.verify import VerificationReport
 from hotpath.config import load_config
 from hotpath.execution.worktrees import FileChange
 from hotpath.models.nemotron import NemotronClient
@@ -76,10 +77,21 @@ def render_context(context: Context, include_code: bool = True) -> str:
     return "\n\n".join(parts)
 
 
+def render_verification(report: VerificationReport) -> str:
+    metric, objective = report.candidate.metric, report.objective
+    values = ", ".join(f"{v:.0f}" for v in metric.values)
+    return (f"  - verification over {metric.n} repeated runs: {objective.metric} per run {values} ms; "
+            f"median {metric.median:.1f} ms, 95% CI {metric.ci_low:.1f}-{metric.ci_high:.1f} ms; "
+            f"{report.candidate.slo_met_runs} of {metric.n} runs met the {objective.target:g} ms target -> "
+            + ("SLO recovered" if report.slo_recovered else "not verified (the whole CI must be under target)"))
+
+
 def render_previous_races(context: Context) -> str:
     if not context.races:
         return ""
-    lines = ["", "## Earlier candidate fixes and how they did (do not repeat failed approaches)"]
+    verified = {v.candidate.label: v for v in context.verifications}
+    lines = ["", "## Earlier candidate fixes and how they did",
+             "Do not resubmit rejected approaches unchanged; use the measurements to decide what to try next."]
     for report in context.races:
         for c in report.evaluation.candidates:
             run = next(r for r in report.runs if r.candidate.name == c.name)
@@ -87,6 +99,8 @@ def render_previous_races(context: Context) -> str:
             lines.append(f"- {c.name} ({run.candidate.strategy}): {outcome}")
             lines += [f"  - rejected: {reason}" for reason in c.reasons]
             lines += [f"  - failing test: {t}" for t in c.failing_tests[:5]]
+            if c.name in verified:
+                lines.append(render_verification(verified[c.name]))
     return "\n".join(lines) + "\n"
 
 
