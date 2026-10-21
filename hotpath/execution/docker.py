@@ -79,12 +79,16 @@ class ComposeProject:
         return result
 
     async def up(self, *services: str, timeout: float = 600) -> None:
-        await self.compose("up", "-d", "--build", "--wait", *services, timeout=timeout)
+        # Build every image (tools included) up front. Later `run`s then never rebuild, which
+        # on newer Compose versions can recreate the running app in the middle of a measurement.
+        await self.compose("build", timeout=timeout)
+        await self.compose("up", "-d", "--wait", *services, timeout=timeout)
 
     async def run(self, service: str, *command: str, env: dict[str, str] | None = None,
                   timeout: float = 600, check: bool = True) -> CommandResult:
+        """Run a one-off tool container against the services `up` already started."""
         flags = [arg for key, value in (env or {}).items() for arg in ("-e", f"{key}={value}")]
-        return await self.compose("run", "--rm", "--build", *flags, service, *command,
+        return await self.compose("run", "--rm", "--no-deps", *flags, service, *command,
                                   timeout=timeout, check=check)
 
     async def logs(self, service: str, tail: int = 40) -> str:
