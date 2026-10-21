@@ -77,8 +77,9 @@ async def test_complete_json_gives_up_after_retries():
     assert len(seen) == 3
 
 
-def test_requires_api_key(monkeypatch):
+def test_requires_api_key(monkeypatch, tmp_path):
     monkeypatch.delenv("NEBIUS_API_KEY", raising=False)
+    monkeypatch.chdir(tmp_path)  # no .env here to fall back on
 
     with pytest.raises(RuntimeError, match="NEBIUS_API_KEY"):
         NemotronClient()
