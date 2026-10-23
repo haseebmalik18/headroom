@@ -238,6 +238,20 @@ def show_command(
         console.print(store.outcome().diff, markup=False, highlight=False)
 
 
+@app.command("export")
+def export_command(
+    investigation: Annotated[str, typer.Argument(help="Investigation id, path, or 'latest'")] = "latest",
+    out: Annotated[Path, typer.Option(help="Dashboard runs directory")] = Path("dashboard/public/runs"),
+    actions_url: Annotated[Optional[str], typer.Option(help="GitHub Actions run that recorded it")] = None,
+    featured: Annotated[bool, typer.Option(help="Open the dashboard on this run")] = False,
+) -> None:
+    """Export an investigation as a replay for the dashboard."""
+    from hotpath.export import export_investigation
+
+    path = export_investigation(Path(investigation), out, actions_url=actions_url, featured=featured)
+    console.print(f"Exported {path}")
+
+
 @app.command("eval")
 def eval_command(
     reference: Annotated[bool, typer.Option(help="Validate scenarios with hand-written reference fixes (no model)")] = False,
