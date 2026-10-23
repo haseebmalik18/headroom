@@ -27,6 +27,8 @@ class InvestigationStore:
     def open(cls, ref: str, root: Path = ROOT) -> "InvestigationStore":
         path = Path(ref)
         if not path.is_dir():
+            if path.is_absolute() or len(path.parts) > 1:
+                raise FileNotFoundError(f"no investigation at {path}")
             matches = sorted(Path(root).glob(f"{ref}*")) if ref != "latest" else sorted(Path(root).iterdir())
             if not matches:
                 raise FileNotFoundError(f"no investigation matching {ref!r} in {root}")
