@@ -130,7 +130,8 @@ async def _run_load(project: ComposeProject, config: ProjectConfig, workload: Wo
         await asyncio.sleep(parse_duration(workload.warmup))
         if runtime.metrics_path:
             async with httpx.AsyncClient() as client:
-                await client.post(f"{app_url}{runtime.metrics_path}/reset", timeout=10)
+                # An overloaded service is exactly what we measure, so give its metrics endpoint time.
+                await client.post(f"{app_url}{runtime.metrics_path}/reset", timeout=120)
         sampler.start()
         if db_sampler:
             db_sampler.start()
@@ -164,7 +165,7 @@ async def _run_load(project: ComposeProject, config: ProjectConfig, workload: Wo
     spans: dict[str, SpanStats] = {}
     if runtime.metrics_path:
         async with httpx.AsyncClient() as client:
-            response = await client.get(f"{app_url}{runtime.metrics_path}", timeout=30)
+            response = await client.get(f"{app_url}{runtime.metrics_path}", timeout=120)
         response.raise_for_status()
         metrics = response.json()
         (results_dir / f"server-{label}.json").write_text(json.dumps(metrics, indent=2))
