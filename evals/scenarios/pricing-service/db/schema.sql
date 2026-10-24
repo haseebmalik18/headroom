@@ -31,7 +31,7 @@ INSERT INTO order_lines (sku, quantity, ordered_at)
 SELECT format('SKU-%s', lpad((1 + (n % 5))::text, 2, '0')),
        1 + floor(random() * 3)::int,
        now() - random() * interval '7 days'
-FROM generate_series(1, 600000) AS n;
+FROM generate_series(1, 1200000) AS n;
 
 INSERT INTO order_lines (sku, quantity, ordered_at)
 SELECT format('SKU-%s', lpad((6 + (n % 19))::text, 2, '0')),
