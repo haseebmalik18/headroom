@@ -137,5 +137,5 @@ def test_previous_races_explain_a_failed_verification():
     text = render_previous_races(context)
 
     assert "- row-locks (SELECT ... FOR UPDATE): winner; p99 14 ms" in text
-    assert "per run 14, 15, 14, 18, 114 ms" in text
-    assert "4 of 5 runs met the 100 ms target -> not verified" in text
+    assert "per run 14.0 ms, 15.0 ms, 14.0 ms, 18.0 ms, 114 ms" in text
+    assert "4 of 5 runs met the goal (p99 latency under 100 ms) -> not verified" in text

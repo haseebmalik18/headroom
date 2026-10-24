@@ -32,7 +32,7 @@ def render_baseline(context: Context) -> str:
     objective = base.objective
     lines = [
         "## Objective",
-        f"{objective.endpoint}: {objective.metric} must be below {objective.target:g} ms.",
+        f"{objective.endpoint}: the goal is {objective.text()} under the load below.",
         "",
         "## Baseline measurement (production-like load test)",
     ]
@@ -79,11 +79,11 @@ def render_context(context: Context, include_code: bool = True) -> str:
 
 def render_verification(report: VerificationReport) -> str:
     metric, objective = report.candidate.metric, report.objective
-    values = ", ".join(f"{v:.0f}" for v in metric.values)
-    return (f"  - verification over {metric.n} repeated runs: {objective.metric} per run {values} ms; "
-            f"median {metric.median:.1f} ms, 95% CI {metric.ci_low:.1f}-{metric.ci_high:.1f} ms; "
-            f"{report.candidate.slo_met_runs} of {metric.n} runs met the {objective.target:g} ms target -> "
-            + ("SLO recovered" if report.slo_recovered else "not verified (the whole CI must be under target)"))
+    values = ", ".join(objective.show(v) for v in metric.values)
+    return (f"  - verification over {metric.n} repeated runs: {objective.metric} per run {values}; "
+            f"median {objective.show(metric.median)}, 95% CI {objective.show(metric.ci_low)}-{objective.show(metric.ci_high)}; "
+            f"{report.candidate.slo_met_runs} of {metric.n} runs met the goal ({objective.text()}) -> "
+            + ("SLO recovered" if report.slo_recovered else "not verified (the whole CI must meet the goal)"))
 
 
 def render_previous_races(context: Context) -> str:

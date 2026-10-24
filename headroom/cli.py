@@ -533,7 +533,7 @@ def _print_result(result: BenchmarkResult) -> None:
         objective = result.objective
         verdict = "[bold green]SLO MET[/bold green]" if result.slo_met else "[bold red]SLO VIOLATED[/bold red]"
         actual = getattr(result.primary.load, objective.metric)
-        console.print(f"{verdict}  {objective.endpoint} {objective.metric} {actual:.1f} (target < {objective.target:g})")
+        console.print(f"{verdict}  {objective.endpoint} {objective.metric} {objective.show(actual)} (goal: {objective.text()})")
 
 
 if __name__ == "__main__":
