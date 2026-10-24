@@ -1,18 +1,22 @@
 import type { Distribution } from "../data/types";
-import { formatMs, formatTick, valueScale } from "./scale";
+import { show } from "../live/goal";
+import { formatTick, valueScale } from "./scale";
 import { useSize } from "./useSize";
 
 interface Props {
   baseline: Distribution | null;
   patched: Distribution;
   target: number;
+  metric?: string;
 }
 
 const ROW = 56;
 const PAD = { left: 84, right: 24, top: 28, bottom: 28 };
 
 /** Every verification run as a dot, per series, with the 95% CI of the median shaded and the target line. */
-export function VerifyDots({ baseline, patched, target }: Props) {
+export function VerifyDots({ baseline, patched, target, metric = "p99_ms" }: Props) {
+  const fmt = (value: number) => show(metric, value);
+  const tick = (value: number) => (metric.endsWith("_ms") ? formatTick(value) : String(value));
   const [ref, { width }] = useSize<HTMLDivElement>();
   const series = [
     ...(baseline ? [{ name: "before", d: baseline, color: "var(--slow)" }] : []),
@@ -28,16 +32,16 @@ export function VerifyDots({ baseline, patched, target }: Props) {
         p99 of each repeated run · shaded: 95% CI of the median{log && <span className="muted"> · log scale</span>}
       </figcaption>
       <svg width={width} height={height} role="img"
-           aria-label={series.map((s) => `${s.name} median ${formatMs(s.d.median)}`).join(", ")}>
+           aria-label={series.map((s) => `${s.name} median ${fmt(s.d.median)}`).join(", ")}>
         {ticks.map((t) => (
           <g key={t} className="axis">
             <line x1={scale(t)} x2={scale(t)} y1={PAD.top - 8} y2={height - PAD.bottom} />
-            <text x={scale(t)} y={height - PAD.bottom + 18} textAnchor="middle">{formatTick(t)}</text>
+            <text x={scale(t)} y={height - PAD.bottom + 18} textAnchor="middle">{tick(t)}</text>
           </g>
         ))}
         <g className="target">
           <line x1={scale(target)} x2={scale(target)} y1={PAD.top - 14} y2={height - PAD.bottom} />
-          <text x={scale(target) + 6} y={PAD.top - 16}>target {formatTick(target)} ms</text>
+          <text x={scale(target) + 6} y={PAD.top - 16}>target {fmt(target)}</text>
         </g>
         {series.map((s, i) => {
           const y = PAD.top + i * ROW + ROW / 2;
@@ -50,12 +54,12 @@ export function VerifyDots({ baseline, patched, target }: Props) {
                     stroke={s.color} />
               {s.d.values.map((v, j) => (
                 <circle key={j} cx={scale(v)} cy={y + ((j % 3) - 1) * 5} r={5} fill={s.color} className="dot">
-                  <title>{`${s.name} run ${j + 1}: ${formatMs(v)}`}</title>
+                  <title>{`${s.name} run ${j + 1}: ${fmt(v)}`}</title>
                 </circle>
               ))}
               <text className="series-value" x={Math.min(scale(s.d.ci_high) + 10, width - 4)} y={y - 18}
                     textAnchor={scale(s.d.ci_high) + 120 > width ? "end" : "start"}>
-                median {formatMs(s.d.median)}
+                median {fmt(s.d.median)}
               </text>
             </g>
           );

@@ -1,16 +1,17 @@
 import type { Candidate, Hypothesis, RunEvent, Verification } from "../data/types";
+import { metricName, show } from "./goal";
 import { explainTestFailure, firstSentence, shortTitle } from "./text";
 
 /** One thing that happened, told as a sentence on the page. `end` is null while it is still happening. */
 export type Entry =
-  | { kind: "measure"; id: string; t: number; end: number | null; users: number | null; p99: number | null; detail: string }
+  | { kind: "measure"; id: string; t: number; end: number | null; users: number | null; value: number | null; detail: string }
   | { kind: "model"; id: string; t: number; end: number | null; task: string; seconds: number | null; tokens: number | null; failed: boolean }
   | { kind: "hypotheses"; id: string; t: number; revised: boolean; items: { id: string; title: string; prior: number }[] }
   | { kind: "experiment"; id: string; t: number; end: number | null; hypothesis: string; users: number[]; detail: string; error: string | null }
   | { kind: "verdict"; id: string; t: number; verdict: string; hypothesis: string; evidence: string; explanation: string; rootCause: boolean }
   | { kind: "fixes"; id: string; t: number; round: number; count: number }
   | { kind: "fix"; id: string; t: number; end: number | null; name: string; strategy: string; started: boolean;
-      status: "waiting" | "running" | "winner" | "valid" | "rejected"; p99: number | null; tests: string | null;
+      status: "waiting" | "running" | "winner" | "valid" | "rejected"; value: number | null; tests: string | null;
       reason: string | null; detail: string; diff: string | null }
   | { kind: "verify"; id: string; t: number; end: number | null; winner: string | null; report: Verification | null; detail: string }
   | { kind: "done"; id: string; t: number; verified: boolean; winner: string | null; reason: string | null; diff: string | null };
@@ -25,6 +26,7 @@ export interface Story {
   entries: Entry[];
   current: Entry | null; // the step happening right now
   markers: Marker[];
+  metric: string; // the goal: what is measured, and its target
   target: number;
   before: number | null;
   after: number | null;
@@ -32,16 +34,17 @@ export interface Story {
   calls: number;
   safetyRejection: {
     name: string;
-    p99: number;
+    value: number;
     reason: string;
     winner: string | null;
-    winnerP99: number | null;
+    winnerValue: number | null;
   } | null;
 }
 
 export interface Meta {
   endpoint: string;
   service: string;
+  metric?: string; // defaults to p99_ms; live runs also learn it from the baseline event
   target: number;
   candidates: Candidate[]; // from the export, for diffs; empty when live
 }
@@ -56,7 +59,7 @@ function cleanProgress(message: string): string {
 export function buildStory(events: RunEvent[], now: number, meta: Meta): Story {
   const t0 = events.length ? Date.parse(events[0].at) : 0;
   const story: Story = {
-    entries: [], current: null, markers: [], target: meta.target, before: null, after: null,
+    entries: [], current: null, markers: [], metric: meta.metric ?? "p99_ms", target: meta.target, before: null, after: null,
     tokens: 0, calls: 0, safetyRejection: null,
   };
   const titles = new Map<string, string>();
@@ -81,7 +84,7 @@ export function buildStory(events: RunEvent[], now: number, meta: Meta): Story {
     switch (event.kind) {
       case "phase":
         phase = event.phase;
-        if (phase === "baseline") open({ kind: "measure", id, t, end: null, users: null, p99: null, detail: "starting the service" });
+        if (phase === "baseline") open({ kind: "measure", id, t, end: null, users: null, value: null, detail: "starting the service" });
         if (phase === "run_experiment") {
           const hid = event.message.match(/^Testing (.+?): /)?.[1] ?? "";
           open({ kind: "experiment", id, t, end: null, hypothesis: titles.get(hid) ?? hid,
@@ -139,8 +142,9 @@ export function buildStory(events: RunEvent[], now: number, meta: Meta): Story {
 
       case "baseline": {
         const measure = last("measure");
-        story.before = data.summary?.p99_ms ?? null;
-        if (measure) Object.assign(measure, { end: t, p99: story.before, users: data.summary?.concurrency ?? null });
+        if (data.objective) Object.assign(story, { metric: data.objective.metric, target: data.objective.target });
+        story.before = data.summary?.[story.metric] ?? null;
+        if (measure) Object.assign(measure, { end: t, value: story.before, users: data.summary?.concurrency ?? null });
         if (story.before !== null) story.markers.push({ kind: "before", label: "before", value: story.before });
         break;
       }
@@ -181,7 +185,7 @@ export function buildStory(events: RunEvent[], now: number, meta: Meta): Story {
         else open({ kind: "fixes", id: `fixes-${round}`, t, round, count: 1 });
         const diff = meta.candidates.find((x) => x.name === c.name && x.round === round)?.diff ?? null;
         fixes.set(c.name, open({ kind: "fix", id, t, end: null, name: c.name, strategy: firstSentence(c.strategy, 160), started: false,
-                                 status: "waiting", p99: null, tests: null, reason: null, detail: "", diff }));
+                                 status: "waiting", value: null, tests: null, reason: null, detail: "", diff }));
         break;
       }
 
@@ -190,24 +194,25 @@ export function buildStory(events: RunEvent[], now: number, meta: Meta): Story {
         for (const c of data.evaluation?.candidates ?? []) {
           const fix = fixes.get(c.name);
           if (!fix) continue;
+          const value: number | null = c.metric_value ?? c.p99_ms;
           Object.assign(fix, {
-            end: t, status: c.status, p99: c.p99_ms, tests: c.tests_total ? `${c.tests_passed} of ${c.tests_total}` : null,
+            end: t, status: c.status, value, tests: c.tests_total ? `${c.tests_passed} of ${c.tests_total}` : null,
             reason: c.status === "rejected"
               ? (c.failing_tests[0] ? explainTestFailure(c.failing_tests[0]) : (c.reasons[0] ?? "").split("\n")[0])
               : null,
           });
-          if (c.p99_ms !== null) story.markers.push({ kind: c.status, label: c.name, value: c.p99_ms });
+          if (value !== null) story.markers.push({ kind: c.status, label: c.name, value });
         }
         {
           const rejected = fixes.get(data.evaluation?.fastest_rejected);
           const selected = winner ? fixes.get(winner) : null;
-          if (rejected?.status === "rejected" && rejected.p99 !== null && rejected.reason) {
+          if (rejected?.status === "rejected" && rejected.value !== null && rejected.reason) {
             story.safetyRejection = {
               name: rejected.name,
-              p99: rejected.p99,
+              value: rejected.value,
               reason: rejected.reason,
               winner: selected?.name ?? null,
-              winnerP99: selected?.p99 ?? null,
+              winnerValue: selected?.value ?? null,
             };
           }
         }
@@ -262,7 +267,6 @@ export interface Group {
   entries: Entry[];
 }
 
-const fmt = (ms: number) => (ms >= 100 ? `${Math.round(ms).toLocaleString("en-US")} ms` : `${ms.toFixed(1)} ms`);
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
 function stageOfEntry(e: Entry): number {
@@ -272,7 +276,8 @@ function stageOfEntry(e: Entry): number {
 
 const isRunning = (e: Entry) => "end" in e && e.end === null && !(e.kind === "fix" && !e.started);
 
-function summarize(stage: number, entries: Entry[], running: Entry | undefined): string {
+function summarize(stage: number, entries: Entry[], running: Entry | undefined, metric: string): string {
+  const fmt = (value: number) => show(metric, value);
   if (running) {
     switch (running.kind) {
       case "measure": return running.detail || "Starting the service";
@@ -285,7 +290,7 @@ function summarize(stage: number, entries: Entry[], running: Entry | undefined):
   switch (stage) {
     case 0: {
       const m = entries.find((e) => e.kind === "measure");
-      return m?.kind === "measure" && m.p99 !== null ? `p99 ${fmt(m.p99)} with ${m.users} users` : "";
+      return m?.kind === "measure" && m.value !== null ? `${metricName(metric)} ${fmt(m.value)} with ${m.users} users` : "";
     }
     case 1:
       return plural(entries.reduce((n, e) => n + (e.kind === "hypotheses" ? e.items.length : 0), 0), "possible cause");
@@ -328,7 +333,7 @@ export function groupStory(story: Story, now: number): Group[] {
     return {
       name: s.name, status, entries, start,
       end: entries.length ? (status === "running" ? now : Math.max(...ends)) : null,
-      summary: summarize(i, entries, running),
+      summary: summarize(i, entries, running, story.metric),
     };
   });
 }

@@ -96,16 +96,16 @@ describe("buildStory when finished", () => {
 
   it("gives each fix its result and the reason a rejected one lost", () => {
     const fixes = story.entries.filter((e) => e.kind === "fix");
-    expect(fixes.map((f) => f.kind === "fix" && [f.name, f.status, f.p99, f.reason])).toEqual([
+    expect(fixes.map((f) => f.kind === "fix" && [f.name, f.status, f.value, f.reason])).toEqual([
       ["select-for-update", "winner", 8.4, null],
       ["optimistic-retry", "rejected", 6.1, "it oversold inventory under concurrent checkout"],
     ]);
     expect(story.safetyRejection).toEqual({
       name: "optimistic-retry",
-      p99: 6.1,
+      value: 6.1,
       reason: "it oversold inventory under concurrent checkout",
       winner: "select-for-update",
-      winnerP99: 8.4,
+      winnerValue: 8.4,
     });
   });
 
@@ -133,7 +133,7 @@ describe("groupStory", () => {
   it("folds a finished run into five done steps with one-line results", () => {
     const groups = groupStory(buildStory(FINISHED, 1_000_000, meta), 1_000_000);
     expect(groups.map((g) => [g.name, g.status, g.summary])).toEqual([
-      ["Measure", "done", "p99 763 ms with 500 users"],
+      ["Measure", "done", "p99 latency 763 ms with 500 users"],
       ["Form hypotheses", "done", "2 possible causes"],
       ["Run experiments", "done", "1 confirmed"],
       ["Compare fixes", "done", "2 fixes, 1 rejected, select-for-update won"],

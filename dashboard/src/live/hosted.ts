@@ -20,7 +20,7 @@ export interface LiveRun {
   created_at: number; finished_at?: number; message: string;
   execution_url: string | null; diff: string | null;
   challenge: { title: string; dataset: string; failure?: string; concurrency: number; fingerprint: string;
-    objective: { endpoint: string; target: number } } | null;
+    objective: { endpoint: string; metric?: string; target: number } } | null;
 }
 
 export function isLegacyCompletedRun(run: LiveRun | null): boolean {

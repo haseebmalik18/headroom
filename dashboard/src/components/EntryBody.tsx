@@ -1,4 +1,4 @@
-import { formatMs } from "../charts/scale";
+import { goalText, metricName, show } from "../live/goal";
 import { VerifyDots } from "../charts/VerifyDots";
 import type { Entry, Story } from "../live/story";
 import { DiffView } from "./DiffView";
@@ -28,12 +28,13 @@ function Running({ entry, now, children }: { entry: Entry; now: number; children
 }
 
 export function EntryBody({ entry, story, now, endpoint, open }: { entry: Entry; story: Story; now: number; endpoint: string; open: boolean }) {
-  const target = formatMs(story.target);
+  const fmt = (value: number) => show(story.metric, value);
+  const goal = goalText(story.metric, story.target);
   switch (entry.kind) {
     case "measure":
       return entry.end === null
         ? <Running entry={entry} now={now}>Load-testing <code>{endpoint}</code> to see how slow it is<small>{entry.detail}</small></Running>
-        : <p className="line big">With {entry.users} users at once, <code>{endpoint}</code> takes <b className="slow">{formatMs(entry.p99 ?? 0)}</b> at the 99th percentile. It should be under {target}.</p>;
+        : <p className="line big">With {entry.users} users at once, the {metricName(story.metric)} of <code>{endpoint}</code> is <b className="slow">{fmt(entry.value ?? 0)}</b>. The goal is {goal}.</p>;
 
     case "model":
       if (entry.end === null) return <Running entry={entry} now={now}><span className="thinking">{THINKING[entry.task] ?? "Nemotron is working"}</span></Running>;
@@ -75,9 +76,9 @@ export function EntryBody({ entry, story, now, endpoint, open }: { entry: Entry;
       return (
         <>
           <p className={`line verdict v-${entry.status === "rejected" ? "disproved" : entry.status === "winner" ? "supported" : "valid"}`}>
-            {entry.status === "rejected" && <><b>Rejected:</b> <code>{entry.name}</code> because {entry.reason}{entry.p99 !== null && <>. Its {formatMs(entry.p99)} result does not count</>}.</>}
-            {entry.status === "winner" && <><b>Fastest valid fix:</b> <code>{entry.name}</code> passed {entry.tests} tests at {formatMs(entry.p99 ?? 0)}.</>}
-            {entry.status === "valid" && <><code>{entry.name}</code> passed {entry.tests} tests at {formatMs(entry.p99 ?? 0)}.</>}
+            {entry.status === "rejected" && <><b>Rejected:</b> <code>{entry.name}</code> because {entry.reason}{entry.value !== null && <>. Its {fmt(entry.value)} result does not count</>}.</>}
+            {entry.status === "winner" && <><b>Best valid fix:</b> <code>{entry.name}</code> passed {entry.tests} tests at {fmt(entry.value ?? 0)}.</>}
+            {entry.status === "valid" && <><code>{entry.name}</code> passed {entry.tests} tests at {fmt(entry.value ?? 0)}.</>}
           </p>
           {open && <><p className="more">{entry.strategy}</p>{entry.diff && <DiffView diff={entry.diff} />}</>}
         </>
@@ -91,13 +92,13 @@ export function EntryBody({ entry, story, now, endpoint, open }: { entry: Entry;
         <>
           <p className={`line big verdict v-${entry.report.slo_recovered ? "supported" : "disproved"}`}>
             {entry.report.slo_recovered
-              ? <>{entry.report.candidate.runs} runs: median <b className="fast">{formatMs(entry.report.candidate.metric.median)}</b>. Correctness tests passed.</>
+              ? <>{entry.report.candidate.runs} runs: median <b className="fast">{fmt(entry.report.candidate.metric.median)}</b>. Correctness tests passed.</>
               : <>It did not hold across {entry.report.candidate.runs} runs, so the fix was not accepted.</>}
           </p>
           <details className="measurement-details">
             <summary>Repeated-run measurements</summary>
-            {entry.report.slo_recovered && <p className="more">The 95% confidence interval is below the {target} target.</p>}
-            <VerifyDots baseline={entry.report.baseline?.metric ?? null} patched={entry.report.candidate.metric} target={story.target} />
+            {entry.report.slo_recovered && <p className="more">The whole 95% confidence interval meets the goal: {goal}.</p>}
+            <VerifyDots baseline={entry.report.baseline?.metric ?? null} patched={entry.report.candidate.metric} target={story.target} metric={story.metric} />
           </details>
         </>
       );

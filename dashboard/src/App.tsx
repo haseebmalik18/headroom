@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 
-import { formatMs } from "./charts/scale";
+import { higherIsBetter, metricName, show, targetText } from "./live/goal";
 import { DiffView } from "./components/DiffView";
 import { clock } from "./components/EntryBody";
 import { Steps } from "./components/Steps";
@@ -36,7 +36,9 @@ function Investigation({ title, events, meta, now, controls, footer, finalDiff =
   const rootCause = story.entries.find((e) => e.kind === "verdict" && e.rootCause);
   const fixes = story.entries.filter((e) => e.kind === "fix");
   const safetyRejection = story.safetyRejection;
-  const reduction = story.before && story.after !== null ? (1 - story.after / story.before) * 100 : null;
+  const fmt = (value: number) => show(story.metric, value);
+  const higher = higherIsBetter(story.metric);
+  const change = story.before && story.after !== null ? Math.abs(story.after / story.before - 1) * 100 : null;
   const patch = done?.verified ? finalDiff ?? done.diff : null;
 
   return (
@@ -57,16 +59,16 @@ function Investigation({ title, events, meta, now, controls, footer, finalDiff =
             <Steps groups={groups} story={story} now={now} endpoint={meta.endpoint} />
             {safetyRejection && <section className="safety-gate" aria-label="Correctness gate">
               <div><span>Correctness gate</span><strong>Fastest fix rejected</strong></div>
-              <p><code>{safetyRejection.name}</code> reached {formatMs(safetyRejection.p99)}, but {safetyRejection.reason}.
-                {safetyRejection.winner && <> <code>{safetyRejection.winner}</code>{safetyRejection.winnerP99 !== null && <> at {formatMs(safetyRejection.winnerP99)}</>} passed correctness and remained eligible.</>}</p>
+              <p><code>{safetyRejection.name}</code> reached {fmt(safetyRejection.value)}, but {safetyRejection.reason}.
+                {safetyRejection.winner && <> <code>{safetyRejection.winner}</code>{safetyRejection.winnerValue !== null && <> at {fmt(safetyRejection.winnerValue)}</>} passed correctness and remained eligible.</>}</p>
             </section>}
             {fixes.length > 0 && <details className="candidate-details">
               <summary>Compare {fixes.length} fixes{fixes.some((fix) => fix.status === "rejected") && <span>{fixes.filter((fix) => fix.status === "rejected").length} rejected</span>}</summary>
               <div className="table-scroll"><table>
-                <thead><tr><th>Proposed fix</th><th>p99 latency</th><th>Tests</th><th>Result</th></tr></thead>
+                <thead><tr><th>Proposed fix</th><th>{metricName(story.metric)}</th><th>Tests</th><th>Result</th></tr></thead>
                 <tbody>{fixes.map((fix) => <tr key={fix.id}>
                   <td><code>{fix.name}</code></td>
-                  <td className="numeric">{fix.p99 !== null ? formatMs(fix.p99) : "—"}</td>
+                  <td className="numeric">{fix.value !== null ? fmt(fix.value) : "—"}</td>
                   <td>{fix.tests ?? "Pending"}</td>
                   <td><span className={`candidate-status c-${fix.status}`}>{({ winner: "Selected", valid: "Passed", rejected: "Rejected", waiting: "Waiting", running: "Running" })[fix.status]}</span></td>
                 </tr>)}</tbody>
@@ -84,14 +86,14 @@ function Investigation({ title, events, meta, now, controls, footer, finalDiff =
         </div>
 
         <aside className="measurement-pane" aria-label="Run measurements">
-          <h2>Latency <span>p99</span></h2>
+          <h2>{metricName(story.metric)}</h2>
           <div className="metric-pair">
-            <div className="metric"><span>Before</span><strong>{story.before !== null ? formatMs(story.before) : "—"}</strong></div>
-            <div className="metric improved"><span>After</span><strong>{story.after !== null ? formatMs(story.after) : "—"}</strong></div>
+            <div className="metric"><span>Before</span><strong>{story.before !== null ? fmt(story.before) : "—"}</strong></div>
+            <div className="metric improved"><span>After</span><strong>{story.after !== null ? fmt(story.after) : "—"}</strong></div>
           </div>
-          {reduction !== null && <p className="improvement-label">{reduction.toFixed(1)}% lower latency</p>}
+          {change !== null && <p className="improvement-label">{change.toFixed(1)}% {higher ? "higher" : "lower"}</p>}
           <dl className="measurement-facts">
-            <div><dt>Target</dt><dd>&lt; {formatMs(story.target)}</dd></div>
+            <div><dt>Target</dt><dd>{targetText(story.metric, story.target)}</dd></div>
             <div><dt>Tests</dt><dd>{report?.candidate.tests_total != null ? `${report.candidate.tests_passed}/${report.candidate.tests_total} passed` : "Pending"}</dd></div>
           </dl>
           <section className="finding">
@@ -108,7 +110,8 @@ function Investigation({ title, events, meta, now, controls, footer, finalDiff =
 
 function SavedView({ run }: { run: Run }) {
   const now = run.events.length ? Date.parse(run.events.at(-1)!.at) - Date.parse(run.events[0].at) : 0;
-  const meta = useMemo<Meta>(() => ({ endpoint: run.objective?.endpoint ?? "", service: run.service, target: run.objective?.target ?? 0, candidates: run.candidates }), [run]);
+  const meta = useMemo<Meta>(() => ({ endpoint: run.objective?.endpoint ?? "", service: run.service, metric: run.objective?.metric,
+    target: run.objective?.target ?? 0, candidates: run.candidates }), [run]);
   const footer = run.actions_url && <a href={run.actions_url} target="_blank" rel="noreferrer">Execution log</a>;
   return <Investigation title={TITLES[run.scenario ?? ""] ?? run.service} events={run.events} meta={meta} now={now}
     controls={null} footer={footer} />;
@@ -116,8 +119,14 @@ function SavedView({ run }: { run: Run }) {
 
 function LocalLiveView() {
   const feed = useLiveFeed(true);
-  const baseline = feed.events.find((e) => e.kind === "baseline")?.message ?? "";
-  const meta = useMemo<Meta>(() => ({ endpoint: baseline.split(" p99")[0], service: feed.id?.replace(/^\d{8}-\d{6}-/, "") ?? "", target: Number(baseline.match(/target < ([\d.]+)ms/)?.[1] ?? 100), candidates: [] }), [baseline, feed.id]);
+  const baseline = feed.events.find((e) => e.kind === "baseline");
+  // Newer runs carry the objective on the baseline event; older ones only had it in the message.
+  const objective = baseline?.data.objective as { endpoint: string; metric: string; target: number } | undefined;
+  const message = baseline?.message ?? "";
+  const meta = useMemo<Meta>(() => ({
+    endpoint: objective?.endpoint ?? message.split(" p99")[0], service: feed.id?.replace(/^\d{8}-\d{6}-/, "") ?? "",
+    metric: objective?.metric, target: objective?.target ?? Number(message.match(/target < ([\d.]+)ms/)?.[1] ?? 100), candidates: [],
+  }), [objective, message, feed.id]);
   if (!feed.events.length) return <main id="main-content" className="live-waiting">
     <h1>Live investigation</h1>
     <p role="status">{feed.state === "error" ? "Live server is offline. Start it from the project directory." : feed.state === "waiting" ? "Connected. Waiting for an investigation to start." : "Connecting to the live server…"}</p>
@@ -162,7 +171,7 @@ function HostedLiveView() {
       message: `Unresolved: ${run.message}`, data: {} }];
   }, [feed.events, run]);
   const meta = useMemo<Meta>(() => ({ endpoint: challenge?.objective.endpoint ?? "", service: challenge?.title ?? "Live investigation",
-    target: challenge?.objective.target ?? 100, candidates: [] }), [challenge]);
+    metric: challenge?.objective.metric, target: challenge?.objective.target ?? 100, candidates: [] }), [challenge]);
   const beginning = events.length ? Date.parse(events[0].at) : run?.created_at ?? feed.now;
   const elapsed = Math.max(0, (running ? feed.now : run?.finished_at ?? feed.now) - beginning);
   const selected = FAILURE_MODES[failure];
