@@ -8,7 +8,7 @@
   "preview_urls": false,
   "send_metrics": false,
   "vars": {
-    "LIVE_ENABLED": "false",
+    "LIVE_ENABLED": "true",
     "GITHUB_REPOSITORY": "haseebmalik18/hotpath",
     "GITHUB_REF": "main"
   },
