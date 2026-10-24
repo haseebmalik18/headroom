@@ -1,9 +1,9 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
-from . import db, pricing, telemetry
+from . import db, orders, pricing, telemetry
 
 
 class PriceQuote(BaseModel):
@@ -12,6 +12,18 @@ class PriceQuote(BaseModel):
     base_price_cents: int
     demand_multiplier: float
     low_stock: bool
+
+
+class OrderRequest(BaseModel):
+    sku: str
+    quantity: int = Field(gt=0, le=100)
+
+
+class OrderConfirmation(BaseModel):
+    order_id: int
+    sku: str
+    quantity: int
+    remaining_stock: int
 
 
 @asynccontextmanager
@@ -40,6 +52,17 @@ async def product_price(sku: str, request: Request):
         raise HTTPException(404, f"unknown product {sku}")
     return PriceQuote(sku=q.sku, price_cents=q.price_cents, base_price_cents=q.base_price_cents,
                       demand_multiplier=q.demand_multiplier, low_stock=q.low_stock)
+
+
+@app.post("/orders", response_model=OrderConfirmation, status_code=201)
+async def place_order(body: OrderRequest, request: Request):
+    try:
+        o = await orders.place(request.app.state.pool, body.sku, body.quantity)
+    except orders.UnknownProduct:
+        raise HTTPException(404, f"unknown product {body.sku}")
+    except orders.OutOfStock as exc:
+        raise HTTPException(409, f"only {exc.available} left in stock")
+    return OrderConfirmation(order_id=o.id, sku=o.sku, quantity=o.quantity, remaining_stock=o.remaining_stock)
 
 
 @app.get("/metrics")

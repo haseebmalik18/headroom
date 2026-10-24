@@ -2,10 +2,15 @@
 
 service: pricing-service
 
-objective:
-  endpoint: GET /products/{sku}/price
-  metric: p99_ms
-  target: 100
+# Shoppers check prices and place orders. Both have an SLO; prices are what is
+# being investigated, and a fix must not push orders over theirs.
+objectives:
+  - endpoint: GET /products/{sku}/price
+    metric: p99_ms
+    target: 100
+  - endpoint: POST /orders
+    metric: p99_ms
+    target: 150
 
 constraints:
   tests: pass

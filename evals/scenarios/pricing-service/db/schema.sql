@@ -24,7 +24,7 @@ INSERT INTO products (sku, name, base_price_cents, stock)
 SELECT format('SKU-%s', lpad(i::text, 2, '0')),
        format('Product %s', i),
        999 + (i * 7919) % 15000,
-       CASE WHEN i % 7 = 0 THEN 8 ELSE 40 + (i * 37) % 400 END
+       CASE WHEN i % 7 = 0 THEN 8 ELSE 100000 + (i * 37) % 400 END
 FROM generate_series(1, 24) AS i;
 
 INSERT INTO order_lines (sku, quantity, ordered_at)
