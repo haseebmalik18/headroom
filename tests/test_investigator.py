@@ -230,3 +230,13 @@ async def test_next_round_sees_why_verification_failed():
     assert outcome.winner == "steady"
     assert reasoner.seen_verifications == ["spiky"]
     assert [v.slo_recovered for v in outcome.context.verifications] == [False, True]
+
+
+async def test_notes_land_in_the_current_phase():
+    investigator = Investigator(happy_path_reasoner(), FakeLab(baseline_p99=40.0))
+    await investigator.run()
+
+    investigator.note("progress", "[baseline] load 1/3: 500 concurrent")
+
+    assert investigator.events[-1].phase == Phase.SLO_ALREADY_MET
+    assert investigator.events[-1].kind == "progress"

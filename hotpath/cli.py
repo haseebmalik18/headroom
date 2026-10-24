@@ -101,6 +101,34 @@ def race_command(
         console.print(f"[dim]race report written to {output}[/dim]")
 
 
+def record_investigation(repo: Path, client, budget, *, verbose: bool = False, **lab_options):
+    """Run an investigation, recording every event, model call and benchmark stage as it happens."""
+    from hotpath.agent.investigator import Investigator
+    from hotpath.agent.lab import LocalLab
+    from hotpath.agent.reasoner import NemotronReasoner
+    from hotpath.agent.store import InvestigationStore
+
+    store = InvestigationStore.create(repo)
+    investigator: Investigator | None = None
+
+    def progress(message: str) -> None:
+        if verbose:
+            console.print(f"  [dim]{message}[/dim]")
+        if investigator:
+            investigator.note("progress", message)
+
+    def on_event(event) -> None:
+        store.record(event)
+        print_event(event)
+
+    investigator = Investigator(NemotronReasoner(client, repo), LocalLab(repo, log=progress, **lab_options), budget,
+                                on_event=on_event)
+    client.on_call = lambda call: investigator.note("model_call", f"Nemotron {call['task']}: {call['state']}", **call)
+    outcome = asyncio.run(investigator.run())
+    store.save_outcome(outcome, client.calls)
+    return outcome, store
+
+
 @app.command("investigate")
 def investigate_command(
     repo: Annotated[Path, typer.Argument(help="Repository containing hotpath.yaml")],
@@ -115,11 +143,7 @@ def investigate_command(
     verbose: Annotated[bool, typer.Option("--verbose", "-v", help="Show low-level execution logs")] = False,
 ) -> None:
     """Investigate an SLO violation end to end and stop at a verified patch awaiting approval."""
-    from hotpath.agent.investigator import Investigator
-    from hotpath.agent.lab import LocalLab
-    from hotpath.agent.reasoner import NemotronReasoner
     from hotpath.agent.state import Budget, Phase
-    from hotpath.agent.store import InvestigationStore
     from hotpath.models.nemotron import NemotronClient
 
     try:
@@ -130,22 +154,12 @@ def investigate_command(
     if not client.model:
         console.print("[red]No model selected:[/red] set NEMOTRON_MODEL in .env or pass --model (see `hotpath models`)")
         raise typer.Exit(2)
-    store = InvestigationStore.create(repo)
-    log = (lambda msg: console.print(f"  [dim]{msg}[/dim]")) if verbose else (lambda _: None)
-    lab = LocalLab(repo, warmup=warmup, duration=duration, race_repeats=race_repeats, verify_runs=verify_runs, log=log)
-
-    def on_event(event):
-        store.record(event)
-        print_event(event)
-
     console.print(f"[bold]HotPath[/bold] · reasoning with [bold]{client.model}[/bold] via Nebius Token Factory")
-    investigator = Investigator(
-        NemotronReasoner(client, repo), lab,
+    outcome, store = record_investigation(
+        repo, client,
         Budget(max_hypotheses=max_hypotheses, max_experiments=max_experiments, max_patch_rounds=max_patch_rounds),
-        on_event=on_event,
+        verbose=verbose, warmup=warmup, duration=duration, race_repeats=race_repeats, verify_runs=verify_runs,
     )
-    outcome = asyncio.run(investigator.run())
-    store.save_outcome(outcome, client.calls)
     tokens = sum(c.prompt_tokens + c.completion_tokens for c in client.calls)
     console.print(f"[dim]{len(client.calls)} Nemotron calls, {tokens:,} tokens · saved to {store.path}[/dim]")
     if outcome.diff:
@@ -210,6 +224,12 @@ def print_event(event) -> None:
             console.print(f"  {c['name']:<24} tests {tests:<6} p99 {p99:<8} [{style}]{label}[/{style}]")
             for reason in c["reasons"]:
                 console.print(f"    [red]{reason}[/red]")
+    elif kind == "progress":
+        pass  # shown with --verbose as it happens
+    elif kind == "model_call":
+        if data.get("state") == "end":
+            tokens = data["prompt_tokens"] + data["completion_tokens"]
+            console.print(f"  [dim]Nemotron {data['task']}: {data['latency_s']:.1f}s, {tokens:,} tokens[/dim]")
     elif kind == "verification":
         r = data["report"]
         cand, base = r["candidate"]["metric"], (r["baseline"] or {}).get("metric")
@@ -290,26 +310,14 @@ def eval_command(
             "[" + ",".join(c.model_dump_json() for c in checks) + "]")
         raise typer.Exit(0 if all(c.ok for c in checks) else 1)
 
-    from hotpath.agent.investigator import Investigator
-    from hotpath.agent.lab import LocalLab
-    from hotpath.agent.reasoner import NemotronReasoner
-    from hotpath.agent.store import InvestigationStore
+    from hotpath.agent.state import Budget
     from hotpath.models.nemotron import NemotronClient
 
     scores = []
     for s in scenarios:
         console.print(f"\n[bold]{s.name}[/bold] ({s.repo})")
-        client = NemotronClient(model=model)
-        store = InvestigationStore.create(s.repo)
-
-        def on_event(event, store=store):
-            store.record(event)
-            print_event(event)
-
-        investigator = Investigator(NemotronReasoner(client, s.repo),
-                                    LocalLab(s.repo, race_repeats=repeats, verify_runs=verify_runs), on_event=on_event)
-        outcome = asyncio.run(investigator.run())
-        store.save_outcome(outcome, client.calls)
+        outcome, _ = record_investigation(s.repo, NemotronClient(model=model), Budget(),
+                                          race_repeats=repeats, verify_runs=verify_runs)
         scores.append(score_outcome(s, outcome))
 
     table = Table(title="HotPath evaluation")

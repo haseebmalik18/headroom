@@ -75,11 +75,17 @@ class Investigator:
         self.budget = budget or Budget()
         self.on_event = on_event
         self.events: list[Event] = []
+        self.phase = Phase.ANALYZE_REPOSITORY
 
     def emit(self, phase: Phase, kind: str, message: str, **data) -> None:
+        self.phase = phase
         event = Event(phase=phase, kind=kind, message=message, data=data)
         self.events.append(event)
         self.on_event(event)
+
+    def note(self, kind: str, message: str, **data) -> None:
+        """Record something that happened inside the current phase (a model call, a benchmark stage)."""
+        self.emit(self.phase, kind, message, **data)
 
     async def run(self) -> Outcome:
         self.emit(Phase.ANALYZE_REPOSITORY, "phase", "Analyzing repository")
