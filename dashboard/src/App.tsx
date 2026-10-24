@@ -157,65 +157,70 @@ function HostedLiveView() {
   const beginning = events.length ? Date.parse(events[0].at) : run?.created_at ?? feed.now;
   const elapsed = Math.max(0, (running ? feed.now : run?.finished_at ?? feed.now) - beginning);
   const selected = FAILURE_MODES[failure];
-  const startForm = <form className="incident-controls" onSubmit={(e) => { e.preventDefault(); void feed.start(failure); }}>
+  const startForm = (compact = false) => <form className={`incident-controls${compact ? " is-compact" : ""}`} onSubmit={(e) => { e.preventDefault(); void feed.start(failure); }}>
     <label className="incident-field">
-      <span>Failure injection</span>
+      <span>Failure profile</span>
       <select value={failure} onChange={(e) => setFailure(e.target.value as FailureMode)}>
         {(Object.entries(FAILURE_MODES) as [FailureMode, (typeof FAILURE_MODES)[FailureMode]][]).map(([value, item]) =>
           <option key={value} value={value}>{item.label}</option>)}
       </select>
-      <small>The investigator never receives this selection.</small>
+      <small>Hidden from the investigator.</small>
     </label>
     <div className="incident-field">
-      <span>Load profile</span>
+      <span>Workload</span>
       <strong>{selected.load}</strong>
-      <small>Fresh data and timing on every run.</small>
+      <small>Fresh data on every run.</small>
     </div>
-    <button type="submit" disabled={feed.starting || feed.connection !== "connected"}>
-      <span>{feed.starting ? "Injecting…" : run ? "Inject another failure" : "Inject failure and start"}</span>
-      <span aria-hidden="true">↗</span>
-    </button>
+    <div className="incident-submit">
+      <button type="submit" disabled={feed.starting || feed.connection !== "connected"}>
+        <span>{feed.starting ? "Starting…" : run ? "Start another run" : "Start live run"}</span>
+        <span aria-hidden="true">↗</span>
+      </button>
+      <small>Results stream into this console.</small>
+    </div>
   </form>;
   const connection = feed.connection === "disabled" ? "Live runs are temporarily unavailable." : feed.connection === "offline" ? "Connection interrupted. Reconnecting…" : feed.connection === "connecting" ? "Connecting…" : null;
   const notices = <>
     {connection && <p className="connection-note" role="status">{connection} {feed.connection !== "connecting" && <button className="text-action" onClick={feed.reconnect}>Reconnect</button>}</p>}
     {feed.error && <p className="run-error" role="alert">{feed.error}</p>}
   </>;
-  if (!challenge) return <main id="main-content" className="live-waiting incident-console">
-    <header className="console-heading">
-      <div>
-        <p className="console-kicker"><span aria-hidden="true" /> Incident control / public lab</p>
-        <h1>Production incident simulator</h1>
-        <p>Inject an allowlisted performance fault into an isolated service. HotPath measures the SLO, investigates the cause, and verifies its own fix.</p>
+  if (!challenge) return <main id="main-content" className="incident-console">
+    <header className="console-bar">
+      <div><p className="console-kicker">Incident control</p><h1>New live run</h1></div>
+      <div className={`runner-readiness is-${feed.connection}`} role="status">
+        <span aria-hidden="true" />
+        {feed.connection === "connected" ? "Runner ready" : feed.connection === "connecting" ? "Connecting to runner" : feed.connection === "disabled" ? "Runner unavailable" : "Runner reconnecting"}
       </div>
-      <dl className="console-facts">
-        <div><dt>Runner</dt><dd>GitHub hosted</dd></div>
-        <div><dt>Environment</dt><dd>Isolated Docker</dd></div>
-        <div><dt>Daily allowance</dt><dd>3 incidents</dd></div>
-      </dl>
     </header>
-    {notices}
-    {!running ? startForm : <div className="dispatch-readout" role="status">
-      <div><span>Failure queued</span><strong>{failureDetails(run?.failure).label}</strong></div>
-      <div><span>Runner state</span><strong>{run?.message}</strong></div>
-      <div><span>Run ID</span><strong>{run?.id.slice(0, 8)}</strong></div>
-    </div>}
-    {run?.state === "failed" && <p className="run-error">{run.message}</p>}
-    <section className="response-pipeline" aria-label="Autonomous investigation sequence">
-      <header><h2>Autonomous response</h2><p>Begins as soon as the service is under load.</p></header>
+    <div className="control-workspace">
+      <section className="run-config" aria-labelledby="run-config-title">
+        <header className="panel-heading"><span>01</span><h2 id="run-config-title">Run configuration</h2></header>
+        {feed.connection !== "connected" && <p className="connection-note">{connection} {feed.connection !== "connecting" && <button className="text-action" onClick={feed.reconnect}>Reconnect</button>}</p>}
+        {feed.error && <p className="run-error" role="alert">{feed.error}</p>}
+        {!running ? startForm() : <div className="dispatch-readout" role="status">
+          <div><span>Failure queued</span><strong>{failureDetails(run?.failure).label}</strong></div>
+          <div><span>Runner state</span><strong>{run?.message}</strong></div>
+          <div><span>Run ID</span><strong>{run?.id.slice(0, 8)}</strong></div>
+        </div>}
+        {run?.state === "failed" && <p className="run-error">{run.message}</p>}
+      </section>
+      <section className="run-plan" aria-labelledby="run-plan-title">
+        <header className="panel-heading"><span>02</span><h2 id="run-plan-title">Run plan</h2></header>
       <ol>
-        <li className={running ? "is-current" : undefined}><span>01</span><div><strong>Boot service</strong><small>Randomized data and workload</small></div></li>
-        <li><span>02</span><div><strong>Detect the SLO breach</strong><small>Measure p99 latency under real load</small></div></li>
-        <li><span>03</span><div><strong>Investigate the cause</strong><small>Form hypotheses and run experiments</small></div></li>
-        <li><span>04</span><div><strong>Race candidate fixes</strong><small>Reject anything that breaks correctness</small></div></li>
-        <li><span>05</span><div><strong>Verify the winner</strong><small>Repeated runs must recover the SLO</small></div></li>
+        <li className={running ? "is-current" : undefined}><span>01</span><strong>Prepare isolated service</strong><small>{running ? "Starting" : "Waiting"}</small></li>
+        <li><span>02</span><strong>Measure baseline</strong><small>Waiting</small></li>
+        <li><span>03</span><strong>Investigate root cause</strong><small>Waiting</small></li>
+        <li><span>04</span><strong>Test candidate fixes</strong><small>Waiting</small></li>
+        <li><span>05</span><strong>Verify SLO recovery</strong><small>Waiting</small></li>
       </ol>
-    </section>
+      </section>
+    </div>
+    <footer className="console-runtime"><span>GitHub-hosted runner</span><span>Fresh Docker environment</span><span>3 runs per day</span></footer>
   </main>;
   return <>
     <div className="live-toolbar">
       <span><b>Live incident</b> / {failureDetails(challenge.failure ?? run?.failure ?? challenge.title).label} / {challenge.dataset} / {challenge.concurrency} concurrent users</span>
-      {!running && startForm}
+      {!running && startForm(true)}
     </div>
     {notices}
     <Investigation key={run!.id} title={challenge.title} events={events} meta={meta} now={elapsed}
