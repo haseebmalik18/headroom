@@ -182,10 +182,6 @@ td code { font-size: 13px; overflow-wrap: anywhere; }
 .console-bar { min-height: 70px; display: flex; align-items: center; justify-content: space-between; gap: 24px; padding-bottom: 18px; border-bottom: 1px solid var(--border); }
 .console-bar h1 { margin: 2px 0 0; font-size: 25px; font-weight: 560; letter-spacing: -.02em; }
 .console-kicker { margin: 0; color: var(--fg-3); font: 10px/1.4 var(--mono); letter-spacing: .1em; text-transform: uppercase; }
-.runner-readiness { display: flex; align-items: center; gap: 9px; color: var(--fg-2); font: 12px/1.5 var(--mono); }
-.runner-readiness > span { width: 7px; height: 7px; border: 1px solid var(--fg-3); }
-.runner-readiness.is-connected > span { border-color: var(--signal); background: var(--signal); box-shadow: 0 0 10px color-mix(in srgb, var(--signal) 35%, transparent); }
-.runner-readiness.is-offline > span, .runner-readiness.is-disabled > span { border-color: var(--red); background: var(--red); }
 .control-workspace { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(330px, .75fr); margin-top: 22px; border: 1px solid var(--border-2); background: #111314; }
 .run-config, .run-plan { min-width: 0; padding: 22px 24px 24px; }
 .run-config { border-right: 1px solid var(--border-2); }
@@ -218,8 +214,6 @@ td code { font-size: 13px; overflow-wrap: anywhere; }
 .run-plan li strong { font-size: 13px; font-weight: 500; }
 .run-plan li.is-current { box-shadow: inset 2px 0 var(--signal); padding-left: 10px; }
 .run-plan li.is-current > span, .run-plan li.is-current small { color: var(--signal); }
-.console-runtime { display: flex; flex-wrap: wrap; gap: 10px 26px; padding: 13px 2px 0; color: var(--fg-3); font: 10px/1.5 var(--mono); text-transform: uppercase; letter-spacing: .04em; }
-.console-runtime span + span::before { content: "/"; margin-right: 26px; color: var(--border-2); }
 .text-action { padding: 4px 0; text-decoration: underline; text-underline-offset: 5px; }
 .live-toolbar { margin: 0 -32px; padding: 12px 32px; display: flex; align-items: baseline; flex-wrap: wrap; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--border); background: #111314; font: 12px/1.6 var(--mono); color: var(--fg-2); }
 .live-toolbar b { color: var(--signal); font-weight: 500; text-transform: uppercase; letter-spacing: .05em; }
@@ -279,14 +273,10 @@ td code { font-size: 13px; overflow-wrap: anywhere; }
 }
 @media (max-width: 600px) {
   .console-bar { align-items: flex-start; flex-direction: column; gap: 8px; }
-  .runner-readiness { margin-top: 0; }
   .run-config, .run-plan { padding: 18px; }
   .incident-controls { grid-template-columns: minmax(0, 1fr); }
   .incident-submit { grid-column: auto; align-items: flex-start; flex-direction: column; }
   .dispatch-readout > div { grid-template-columns: 100px minmax(0, 1fr); }
-  .console-runtime { display: block; }
-  .console-runtime span { display: block; margin-top: 4px; }
-  .console-runtime span + span::before { content: none; }
   .live-toolbar .incident-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; width: 100%; }
   .live-toolbar .incident-submit { display: block; }
 }

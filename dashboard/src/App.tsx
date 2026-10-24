@@ -187,10 +187,6 @@ function HostedLiveView() {
   if (!challenge) return <main id="main-content" className="incident-console">
     <header className="console-bar">
       <div><p className="console-kicker">Incident control</p><h1>New live run</h1></div>
-      <div className={`runner-readiness is-${feed.connection}`} role="status">
-        <span aria-hidden="true" />
-        {feed.connection === "connected" ? "Runner ready" : feed.connection === "connecting" ? "Connecting to runner" : feed.connection === "disabled" ? "Runner unavailable" : "Runner reconnecting"}
-      </div>
     </header>
     <div className="control-workspace">
       <section className="run-config" aria-labelledby="run-config-title">
@@ -215,7 +211,6 @@ function HostedLiveView() {
       </ol>
       </section>
     </div>
-    <footer className="console-runtime"><span>GitHub-hosted runner</span><span>Fresh Docker environment</span><span>3 runs per day</span></footer>
   </main>;
   return <>
     <div className="live-toolbar">
