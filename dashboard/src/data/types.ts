@@ -123,8 +123,16 @@ export interface RunStatistics {
   slo_met_runs: number;
 }
 
+export interface GoalCheck {
+  objective: Objective;
+  baseline: Distribution | null;
+  candidate: Distribution;
+  met: boolean;
+}
+
 export interface Verification {
   objective: Objective;
+  goals?: GoalCheck[]; // one per objective, when the run had several
   baseline: RunStatistics | null;
   candidate: RunStatistics;
   slo_recovered: boolean;

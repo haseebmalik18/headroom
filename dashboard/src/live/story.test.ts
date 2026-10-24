@@ -159,3 +159,27 @@ describe("load wording", () => {
     expect(groups[0].summary).toBe("p99 latency 763 ms at 187 req/s");
   });
 });
+
+describe("several goals", () => {
+  it("tracks each goal from the baseline to the verified result", () => {
+    const goals = [
+      { endpoint: "GET /products/{sku}/price", metric: "p99_ms", target: 100 },
+      { endpoint: "POST /orders", metric: "p99_ms", target: 150 },
+    ];
+    const events = FINISHED.map((e) => {
+      if (e.kind === "baseline") return { ...e, data: { ...e.data, summary: { ...e.data.summary, objectives: [
+        { ...goals[0], value: 763, met: false }, { ...goals[1], value: 90, met: true }] } } };
+      if (e.kind === "verification") return { ...e, data: { report: { ...e.data.report, goals: [
+        { objective: goals[0], met: true, baseline: null, candidate: { median: 9.1 } },
+        { objective: goals[1], met: true, baseline: null, candidate: { median: 95 } }] } } };
+      return e;
+    });
+
+    const story = buildStory(events, 1_000_000, meta);
+
+    expect(story.goals.map((g) => [g.endpoint, g.before, g.after, g.met])).toEqual([
+      ["GET /products/{sku}/price", 763, 9.1, true],
+      ["POST /orders", 90, 95, true],
+    ]);
+  });
+});

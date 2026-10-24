@@ -94,6 +94,18 @@ function Investigation({ title, events, meta, now, controls, footer, finalDiff =
           {change !== null && <p className="improvement-label">{change.toFixed(1)}% {higher ? "higher" : "lower"}</p>}
           <dl className="measurement-facts">
             <div><dt>Target</dt><dd>{targetText(story.metric, story.target)}</dd></div>
+            {story.goals.slice(1).map((g) => (
+              <div key={`${g.endpoint} ${g.metric}`} className="other-goal">
+                <dt><code>{g.endpoint}</code></dt>
+                <dd>
+                  {g.before !== null ? show(g.metric, g.before) : "—"}
+                  {g.after !== null && <> → {show(g.metric, g.after)}</>}
+                  {" "}<span className={g.met === false ? "goal-missed" : g.met ? "goal-met" : ""}>
+                    {targetText(g.metric, g.target)}{g.met === null ? "" : g.met ? ", met" : ", missed"}
+                  </span>
+                </dd>
+              </div>
+            ))}
             <div><dt>Tests</dt><dd>{report?.candidate.tests_total != null ? `${report.candidate.tests_passed}/${report.candidate.tests_total} passed` : "Pending"}</dd></div>
           </dl>
           <section className="finding">

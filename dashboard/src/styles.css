@@ -84,6 +84,10 @@ h1 { margin: 0 0 6px; font-size: 24px; font-weight: 550; line-height: 1.3; lette
 .measurement-facts { margin: 22px 0 0; }
 .measurement-facts > div { display: flex; justify-content: space-between; gap: 12px; margin-top: 8px; font-size: 14px; }
 .measurement-facts dt { color: var(--fg-3); }
+.measurement-facts .other-goal { flex-direction: column; gap: 2px; padding-top: 8px; border-top: 1px solid var(--border); }
+.measurement-facts .other-goal dd { margin: 0; font-variant-numeric: tabular-nums; }
+.goal-met { color: var(--green); }
+.goal-missed { color: var(--red); }
 .measurement-facts dd { margin: 0; font: 13px/1.7 var(--mono); text-align: right; }
 .finding { margin-top: 25px; }
 .finding h3 { color: var(--fg-3); font-size: 13px; font-weight: 400; margin: 0 0 6px; }

@@ -22,8 +22,18 @@ export interface Marker {
   value: number;
 }
 
+export interface GoalStatus {
+  endpoint: string;
+  metric: string;
+  target: number;
+  before: number | null;
+  after: number | null;
+  met: boolean | null; // null until verified
+}
+
 export interface Story {
   entries: Entry[];
+  goals: GoalStatus[]; // every objective, primary first; empty for runs recorded before objectives were listed
   current: Entry | null; // the step happening right now
   markers: Marker[];
   metric: string; // the goal: what is measured, and its target
@@ -59,7 +69,7 @@ function cleanProgress(message: string): string {
 export function buildStory(events: RunEvent[], now: number, meta: Meta): Story {
   const t0 = events.length ? Date.parse(events[0].at) : 0;
   const story: Story = {
-    entries: [], current: null, markers: [], metric: meta.metric ?? "p99_ms", target: meta.target, before: null, after: null,
+    entries: [], goals: [], current: null, markers: [], metric: meta.metric ?? "p99_ms", target: meta.target, before: null, after: null,
     tokens: 0, calls: 0, safetyRejection: null,
   };
   const titles = new Map<string, string>();
@@ -144,6 +154,9 @@ export function buildStory(events: RunEvent[], now: number, meta: Meta): Story {
         const measure = last("measure");
         if (data.objective) Object.assign(story, { metric: data.objective.metric, target: data.objective.target });
         story.before = data.summary?.[story.metric] ?? null;
+        story.goals = (data.summary?.objectives ?? []).map((o: any) => ({
+          endpoint: o.endpoint, metric: o.metric, target: o.target, before: o.value, after: null, met: null,
+        }));
         if (measure) Object.assign(measure, { end: t, value: story.before, users: data.summary?.concurrency ?? null,
                                               rps: data.summary?.throughput_rps ?? null });
         if (story.before !== null) story.markers.push({ kind: "before", label: "before", value: story.before });
@@ -223,6 +236,10 @@ export function buildStory(events: RunEvent[], now: number, meta: Meta): Story {
         const report = data.report as Verification;
         const verify = last("verify");
         if (verify) Object.assign(verify, { end: t, report });
+        for (const check of report.goals ?? []) {
+          const goal = story.goals.find((g) => g.endpoint === check.objective.endpoint && g.metric === check.objective.metric);
+          if (goal) Object.assign(goal, { after: check.candidate.median, met: check.met });
+        }
         if (report.slo_recovered) {
           story.after = report.candidate.metric.median;
           story.markers.push({ kind: "after", label: "verified", value: story.after });
