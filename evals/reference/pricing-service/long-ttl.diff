@@ -1,0 +1,13 @@
+diff --git a/app/pricing.py b/app/pricing.py
+index 987d586..1d6a328 100644
+--- a/app/pricing.py
++++ b/app/pricing.py
+@@ -21,7 +21,7 @@ class Quote:
+ 
+ # Prices follow live demand, so a quote may be reused only briefly. The product
+ # team's rule: a change in base price or demand must show within 3 seconds.
+-CACHE_TTL_S = 2.0
++CACHE_TTL_S = 300.0
+ LOW_STOCK = 20
+ 
+ _cache: dict[str, tuple[float, Quote]] = {}

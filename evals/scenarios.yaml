@@ -41,3 +41,12 @@ scenarios:
     reference_fixes:
       - {name: gather, expect: valid}
       - {name: cached-summary, expect: rejected}
+
+  - name: cache-stampede
+    repo: evals/scenarios/pricing-service
+    root_cause: When a bestseller's cached quote expires, every in-flight request recomputes it at once (a cache stampede), flooding the database with identical expensive demand queries.
+    root_cause_keywords: [stampede, thundering herd, dogpile, simultaneous, concurrent recompute, coalesc, single-flight, single flight, at once, expir]
+    reference_fixes:
+      - {name: single-flight, expect: valid}
+      - {name: stale-while-revalidate, expect: valid}
+      - {name: long-ttl, expect: rejected}
