@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Literal
 
 import yaml
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, model_validator
 
 CONFIG_FILE = "headroom.yaml"
 
@@ -81,10 +81,24 @@ class Runtime(BaseModel):
 
 class ProjectConfig(BaseModel):
     service: str
-    objective: Objective
+    # Every SLO the service must meet. The first is the primary one the investigation is about;
+    # a fix must meet all of them and may not break one the original code was meeting.
+    objectives: list[Objective] = Field(min_length=1)
     constraints: Constraints = Constraints()
     workload: Workload
     runtime: Runtime
+
+    @model_validator(mode="before")
+    @classmethod
+    def _one_or_many(cls, data):
+        if isinstance(data, dict) and "objective" in data and "objectives" not in data:
+            data = {**data, "objectives": [data["objective"]]}
+            del data["objective"]
+        return data
+
+    @property
+    def objective(self) -> Objective:
+        return self.objectives[0]
 
 
 def load_config(repo: Path) -> ProjectConfig:

@@ -37,6 +37,17 @@ class TestReport(BaseModel):
         return self.total > 0 and self.failed == 0 and self.errors == 0
 
 
+class EndpointStats(BaseModel):
+    """One endpoint's share of a load run, when the load test reports endpoints separately."""
+
+    requests: int
+    p50_ms: float
+    p95_ms: float
+    p99_ms: float
+    throughput_rps: float
+    error_rate: float
+
+
 class LoadReport(BaseModel):
     """Client-side view of one load run (from the k6 summary JSON)."""
 
@@ -54,6 +65,11 @@ class LoadReport(BaseModel):
     avg_ms: float
     throughput_rps: float
     error_rate: float
+    endpoints: dict[str, EndpointStats] = {}
+
+    def value(self, objective: Objective) -> float:
+        """The objective's metric for its endpoint, or for the whole run when endpoints are not split out."""
+        return getattr(self.endpoints.get(objective.endpoint, self), objective.metric)
 
 
 class SpanStats(BaseModel):
@@ -97,7 +113,8 @@ class BenchmarkResult(BaseModel):
     repo: str
     started_at: datetime
     finished_at: datetime
-    objective: Objective
+    objective: Objective                 # the primary objective
+    objectives: list[Objective] = []     # all of them, primary first (empty means just `objective`)
     tests: TestReport | None = None
     runs: list[LoadRun] = []
     error: str | None = None
@@ -121,13 +138,27 @@ class BenchmarkResult(BaseModel):
         return statistics.median(values) if values else None
 
     @property
+    def goals(self) -> list[Objective]:
+        return self.objectives or [self.objective]
+
+    def median_value(self, objective: Objective) -> float | None:
+        """Median of one objective's metric across the primary runs."""
+        values = [r.load.value(objective) for r in self.primary_runs]
+        return statistics.median(values) if values else None
+
+    @property
     def slo_met(self) -> bool | None:
-        value = self.median_load(self.objective.metric)
-        return None if value is None else self.objective.met(value)
+        values = [self.median_value(o) for o in self.goals]
+        return None if not self.primary_runs else all(o.met(v) for o, v in zip(self.goals, values))
 
     def summary(self) -> dict:
         """Flat headline numbers for the primary run."""
         out: dict = {"label": self.label, "error": self.error, "slo_met": self.slo_met}
+        if self.primary_runs:
+            out["objectives"] = [
+                {**o.model_dump(), "value": v, "met": o.met(v)}
+                for o, v in ((o, self.median_value(o)) for o in self.goals)
+            ]
         if self.tests:
             out |= {"tests_passed": self.tests.passed, "tests_total": self.tests.total, "tests_ok": self.tests.ok}
         run = self.primary

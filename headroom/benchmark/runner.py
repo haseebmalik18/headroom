@@ -56,6 +56,7 @@ async def run_benchmark(
         started_at=datetime.now(timezone.utc),
         finished_at=datetime.now(timezone.utc),
         objective=config.objective,
+        objectives=config.objectives,
     )
 
     try:

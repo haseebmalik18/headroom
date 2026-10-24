@@ -75,3 +75,26 @@ def test_failed_run_has_no_slo_verdict():
 
     assert result.slo_met is None
     assert result.summary()["error"] == "service failed to start"
+
+
+def test_each_endpoint_is_judged_on_its_own_numbers():
+    from datetime import datetime, timezone
+
+    from headroom.benchmark.results import BenchmarkResult, EndpointStats, LoadReport, LoadRun
+    from headroom.config import Objective
+
+    price = Objective(endpoint="GET /price", metric="p99_ms", target=100)
+    orders = Objective(endpoint="POST /orders", metric="p99_ms", target=150)
+    load = LoadReport(label="l", vus=200, think_ms=200, duration_s=20, requests=1000, p50_ms=5, p95_ms=50,
+                      p99_ms=900, max_ms=1000, avg_ms=20, throughput_rps=50, error_rate=0, endpoints={
+                          "GET /price": EndpointStats(requests=900, p50_ms=5, p95_ms=40, p99_ms=60, throughput_rps=45, error_rate=0),
+                          "POST /orders": EndpointStats(requests=100, p50_ms=90, p95_ms=300, p99_ms=400, throughput_rps=5, error_rate=0),
+                      })
+    now = datetime.now(timezone.utc)
+    result = BenchmarkResult(service="s", label="b", repo="/r", started_at=now, finished_at=now,
+                             objective=price, objectives=[price, orders], runs=[LoadRun(load=load)])
+
+    assert load.value(price) == 60 and load.value(orders) == 400
+    assert result.median_value(orders) == 400
+    assert result.slo_met is False                                  # price is fine, orders is not
+    assert [o["met"] for o in result.summary()["objectives"]] == [True, False]

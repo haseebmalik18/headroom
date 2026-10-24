@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pytest
+import yaml
 
 from headroom.config import Objective, load_config, parse_duration
 
@@ -62,3 +63,23 @@ def test_error_rate_goals_read_as_percentages():
     assert goal.met(0.0005) and not goal.met(0.002)
     assert goal.text() == "error rate under 0.1%"
     assert goal.show(0.0213) == "2.13%"
+
+
+def test_a_config_can_set_several_objectives(tmp_path):
+    config = yaml.safe_load(CHECKOUT.joinpath("headroom.yaml").read_text())
+    del config["objective"]
+    config["objectives"] = [{"endpoint": "POST /inventory/reserve", "metric": "p99_ms", "target": 100},
+                            {"endpoint": "GET /products", "metric": "p99_ms", "target": 50}]
+    (tmp_path / "headroom.yaml").write_text(yaml.safe_dump(config))
+
+    loaded = load_config(tmp_path)
+
+    assert [o.endpoint for o in loaded.objectives] == ["POST /inventory/reserve", "GET /products"]
+    assert loaded.objective.endpoint == "POST /inventory/reserve"      # the first one is the primary
+
+
+def test_a_single_objective_still_works():
+    config = load_config(CHECKOUT)
+
+    assert len(config.objectives) == 1
+    assert config.objective.target == 100
