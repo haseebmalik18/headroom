@@ -4,7 +4,7 @@ import { explainTestFailure, firstSentence, shortTitle } from "./text";
 
 /** One thing that happened, told as a sentence on the page. `end` is null while it is still happening. */
 export type Entry =
-  | { kind: "measure"; id: string; t: number; end: number | null; users: number | null; value: number | null; detail: string }
+  | { kind: "measure"; id: string; t: number; end: number | null; users: number | null; rps: number | null; value: number | null; detail: string }
   | { kind: "model"; id: string; t: number; end: number | null; task: string; seconds: number | null; tokens: number | null; failed: boolean }
   | { kind: "hypotheses"; id: string; t: number; revised: boolean; items: { id: string; title: string; prior: number }[] }
   | { kind: "experiment"; id: string; t: number; end: number | null; hypothesis: string; users: number[]; detail: string; error: string | null }
@@ -84,7 +84,7 @@ export function buildStory(events: RunEvent[], now: number, meta: Meta): Story {
     switch (event.kind) {
       case "phase":
         phase = event.phase;
-        if (phase === "baseline") open({ kind: "measure", id, t, end: null, users: null, value: null, detail: "starting the service" });
+        if (phase === "baseline") open({ kind: "measure", id, t, end: null, users: null, rps: null, value: null, detail: "starting the service" });
         if (phase === "run_experiment") {
           const hid = event.message.match(/^Testing (.+?): /)?.[1] ?? "";
           open({ kind: "experiment", id, t, end: null, hypothesis: titles.get(hid) ?? hid,
@@ -144,7 +144,8 @@ export function buildStory(events: RunEvent[], now: number, meta: Meta): Story {
         const measure = last("measure");
         if (data.objective) Object.assign(story, { metric: data.objective.metric, target: data.objective.target });
         story.before = data.summary?.[story.metric] ?? null;
-        if (measure) Object.assign(measure, { end: t, value: story.before, users: data.summary?.concurrency ?? null });
+        if (measure) Object.assign(measure, { end: t, value: story.before, users: data.summary?.concurrency ?? null,
+                                              rps: data.summary?.throughput_rps ?? null });
         if (story.before !== null) story.markers.push({ kind: "before", label: "before", value: story.before });
         break;
       }
@@ -290,7 +291,9 @@ function summarize(stage: number, entries: Entry[], running: Entry | undefined, 
   switch (stage) {
     case 0: {
       const m = entries.find((e) => e.kind === "measure");
-      return m?.kind === "measure" && m.value !== null ? `${metricName(metric)} ${fmt(m.value)} with ${m.users} users` : "";
+      if (m?.kind !== "measure" || m.value === null) return "";
+      const load = m.rps !== null && metric !== "throughput_rps" ? `at ${show("throughput_rps", m.rps)}` : `with ${m.users} concurrent clients`;
+      return `${metricName(metric)} ${fmt(m.value)} ${load}`;
     }
     case 1:
       return plural(entries.reduce((n, e) => n + (e.kind === "hypotheses" ? e.items.length : 0), 0), "possible cause");

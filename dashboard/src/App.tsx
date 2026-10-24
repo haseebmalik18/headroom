@@ -232,7 +232,7 @@ function HostedLiveView() {
   </main>;
   return <>
     <div className="live-toolbar">
-      <span><b>Live incident</b> / {failureDetails(challenge.failure ?? run?.failure ?? challenge.title).label} / {challenge.dataset} / {challenge.concurrency} concurrent users</span>
+      <span><b>Live incident</b> / {failureDetails(challenge.failure ?? run?.failure ?? challenge.title).label} / {challenge.dataset} / {challenge.concurrency} concurrent clients</span>
       {!running && startForm(true)}
     </div>
     {notices}

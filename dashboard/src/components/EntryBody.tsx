@@ -16,8 +16,8 @@ export const clock = (ms: number) => {
 
 const seconds = (ms: number) => `${Math.max(0, Math.floor(ms / 1000))}s`;
 const listUsers = (users: number[]) => users.length > 1
-  ? `${users.slice(0, -1).join(", ")} and ${users.at(-1)} users`
-  : `${users[0] ?? "?"} users`;
+  ? `${users.slice(0, -1).join(", ")} and ${users.at(-1)} concurrent clients`
+  : `${users[0] ?? "?"} concurrent clients`;
 
 function Running({ entry, now, children }: { entry: Entry; now: number; children: React.ReactNode }) {
   return (
@@ -34,7 +34,9 @@ export function EntryBody({ entry, story, now, endpoint, open }: { entry: Entry;
     case "measure":
       return entry.end === null
         ? <Running entry={entry} now={now}>Load-testing <code>{endpoint}</code> to see how slow it is<small>{entry.detail}</small></Running>
-        : <p className="line big">With {entry.users} users at once, the {metricName(story.metric)} of <code>{endpoint}</code> is <b className="slow">{fmt(entry.value ?? 0)}</b>. The goal is {goal}.</p>;
+        : <p className="line big">{entry.rps !== null && story.metric !== "throughput_rps"
+            ? <>At {show("throughput_rps", entry.rps)} on one instance</>
+            : <>With {entry.users} concurrent clients</>}, the {metricName(story.metric)} of <code>{endpoint}</code> is <b className="slow">{fmt(entry.value ?? 0)}</b>. The goal is {goal}.</p>;
 
     case "model":
       if (entry.end === null) return <Running entry={entry} now={now}><span className="thinking">{THINKING[entry.task] ?? "Nemotron is working"}</span></Running>;

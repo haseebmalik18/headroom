@@ -133,7 +133,7 @@ describe("groupStory", () => {
   it("folds a finished run into five done steps with one-line results", () => {
     const groups = groupStory(buildStory(FINISHED, 1_000_000, meta), 1_000_000);
     expect(groups.map((g) => [g.name, g.status, g.summary])).toEqual([
-      ["Measure", "done", "p99 latency 763 ms with 500 users"],
+      ["Measure", "done", "p99 latency 763 ms with 500 concurrent clients"],
       ["Form hypotheses", "done", "2 possible causes"],
       ["Run experiments", "done", "1 confirmed"],
       ["Compare fixes", "done", "2 fixes, 1 rejected, select-for-update won"],
@@ -148,5 +148,14 @@ describe("groupStory", () => {
     expect(groups.map((g) => g.status)).toEqual(["done", "done", "running", "waiting", "waiting"]);
     expect(groups[2].summary).toBe("Testing: Global asyncio.Lock serializes all reservations");
     expect(groups[2].end).toBe(90_000);
+  });
+});
+
+describe("load wording", () => {
+  it("describes measured load as requests per second on one instance", () => {
+    const events = RUNNING.map((e) => e.kind === "baseline"
+      ? { ...e, data: { summary: { p99_ms: 763, concurrency: 500, throughput_rps: 187.4 } } } : e);
+    const groups = groupStory(buildStory(events, 90_000, meta), 90_000);
+    expect(groups[0].summary).toBe("p99 latency 763 ms at 187 req/s");
   });
 });
