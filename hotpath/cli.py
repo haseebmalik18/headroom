@@ -272,6 +272,24 @@ def export_command(
     console.print(f"Exported {path}")
 
 
+@app.command("serve")
+def serve_command(
+    port: Annotated[int, typer.Option(help="Port to listen on")] = 8765,
+    dist: Annotated[Path, typer.Option(help="Built dashboard to serve")] = Path("dashboard/dist"),
+) -> None:
+    """Stream investigations to the dashboard live while they run."""
+    from hotpath.serve import make_server
+
+    server = make_server(port, dist=dist if (dist / "index.html").exists() else None)
+    console.print(f"Live dashboard on [bold]http://127.0.0.1:{port}/hotpath/[/bold]"
+                  if (dist / "index.html").exists() else
+                  f"Streaming events on http://127.0.0.1:{port}/api/live (build the dashboard to serve it here too)")
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        pass
+
+
 @app.command("eval")
 def eval_command(
     reference: Annotated[bool, typer.Option(help="Validate scenarios with hand-written reference fixes (no model)")] = False,
