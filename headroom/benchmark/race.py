@@ -48,7 +48,7 @@ async def race(
     evaluation = evaluate(
         baseline,
         {r.candidate.name: r.result for r in runs},
-        config.objective,
+        config.objectives,
         config.constraints,
     )
     return RaceReport(baseline=baseline, runs=runs, evaluation=evaluation)

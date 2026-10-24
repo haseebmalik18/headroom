@@ -7,6 +7,10 @@ first (lowest latency or error rate, highest throughput), then the other of late
 
 When a candidate was benchmarked several times, its metrics are the medians
 across those runs, and its error rate and memory are the worst seen.
+
+With several objectives, the first is the primary one candidates are ranked on.
+A candidate must meet all of them to recover the SLO, and one that breaks an
+objective the original code was meeting is rejected outright.
 """
 
 from typing import Literal
@@ -31,13 +35,15 @@ class CandidateEvaluation(BaseModel):
     throughput_rps: float | None = None
     tests_passed: int | None = None
     tests_total: int | None = None
-    meets_slo: bool = False
+    meets_slo: bool = False          # every objective met
+    goals_met: int = 0
     p99_change_pct: float | None = None
     throughput_change_pct: float | None = None
 
 
 class Evaluation(BaseModel):
-    objective: Objective
+    objective: Objective                 # the primary objective
+    objectives: list[Objective] = []
     baseline_metric: float | None
     baseline_throughput_rps: float | None
     candidates: list[CandidateEvaluation]
@@ -74,19 +80,34 @@ def _rejections(result: BenchmarkResult, constraints: Constraints) -> list[str]:
     return reasons
 
 
+def _regressions(result: BenchmarkResult, baseline: BenchmarkResult, goals: list[Objective]) -> list[str]:
+    """Objectives the original code met and this candidate does not."""
+    reasons = []
+    for goal in goals:
+        before, now = baseline.median_value(goal), result.median_value(goal)
+        if before is not None and now is not None and goal.met(before) and not goal.met(now):
+            reasons.append(f"made {goal.endpoint} miss its goal ({goal.text()}): "
+                           f"{goal.show(before)} before, {goal.show(now)} now")
+    return reasons
+
+
 def evaluate(
     baseline: BenchmarkResult,
     candidates: dict[str, BenchmarkResult],
-    objective: Objective,
+    objectives: Objective | list[Objective],
     constraints: Constraints,
 ) -> Evaluation:
-    base_metric = baseline.median_load(objective.metric)
+    goals = [objectives] if isinstance(objectives, Objective) else list(objectives)
+    objective = goals[0]
+    base_metric = baseline.median_value(objective)
     base_p99 = baseline.median_load("p99_ms")
     base_rps = baseline.median_load("throughput_rps")
 
     evaluations: list[CandidateEvaluation] = []
     for name, result in candidates.items():
         reasons = _rejections(result, constraints)
+        if not reasons:
+            reasons = _regressions(result, baseline, goals)
         entry = CandidateEvaluation(
             name=name,
             status="rejected" if reasons else "valid",
@@ -96,12 +117,13 @@ def evaluate(
             tests_total=result.tests.total if result.tests else None,
             runs=len(result.primary_runs),
         )
-        metric = result.median_load(objective.metric)
+        metric = result.median_value(objective)
         if metric is not None:
             entry.metric_value = metric
             entry.p99_ms = result.median_load("p99_ms")
             entry.throughput_rps = result.median_load("throughput_rps")
-            entry.meets_slo = objective.met(metric)
+            entry.goals_met = sum(goal.met(result.median_value(goal)) for goal in goals)
+            entry.meets_slo = entry.goals_met == len(goals)
             entry.p99_change_pct = _change_pct(entry.p99_ms, base_p99)
             entry.throughput_change_pct = _change_pct(entry.throughput_rps, base_rps)
             if entry.status == "valid" and base_metric is not None and not objective.better(metric, base_metric):
@@ -114,7 +136,7 @@ def evaluate(
         return (c.metric_value, -(c.throughput_rps or 0))
 
     eligible = [c for c in evaluations if c.status == "valid" and "not better than baseline" not in c.notes]
-    winner = min(eligible, key=rank, default=None)
+    winner = min(eligible, key=lambda c: (-c.goals_met, *rank(c)), default=None)
     if winner:
         winner.status = "winner"
 
@@ -124,6 +146,7 @@ def evaluate(
 
     return Evaluation(
         objective=objective,
+        objectives=goals,
         baseline_metric=base_metric,
         baseline_throughput_rps=base_rps,
         candidates=evaluations,

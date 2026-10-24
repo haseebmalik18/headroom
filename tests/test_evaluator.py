@@ -165,3 +165,44 @@ def test_throughput_goal_ranks_the_highest_valid_throughput_first():
     assert ev.fastest_rejected == "no-lock"          # the best number came from a broken fix
     assert "not better than baseline" in next(c for c in ev.candidates if c.name == "slower").notes
     assert ev.slo_recovered
+
+
+PRICE = Objective(endpoint="GET /price", metric="p99_ms", target=100)
+ORDERS = Objective(endpoint="POST /orders", metric="p99_ms", target=150)
+
+
+def _two_endpoints(label: str, price_p99: float, orders_p99: float, passed: int = 17) -> BenchmarkResult:
+    from headroom.benchmark.results import EndpointStats
+
+    stats = lambda p99, share: EndpointStats(requests=int(1000 * share), p50_ms=p99 / 4, p95_ms=p99 / 2,  # noqa: E731
+                                             p99_ms=p99, throughput_rps=100 * share, error_rate=0)
+    result = _result(label, p99=max(price_p99, orders_p99), passed=passed)
+    result.runs[0].load.endpoints = {"GET /price": stats(price_p99, 0.9), "POST /orders": stats(orders_p99, 0.1)}
+    return result.model_copy(update={"objective": PRICE, "objectives": [PRICE, ORDERS]})
+
+
+def test_a_fix_may_not_break_a_goal_the_original_code_met():
+    baseline = _two_endpoints("baseline", price_p99=1800, orders_p99=90)
+    candidates = {
+        "recompute-on-write": _two_endpoints("recompute-on-write", price_p99=3, orders_p99=400),
+        "stale-while-revalidate": _two_endpoints("stale-while-revalidate", price_p99=5, orders_p99=95),
+    }
+
+    ev = evaluate(baseline, candidates, [PRICE, ORDERS], CONSTRAINTS)
+
+    broken = next(c for c in ev.candidates if c.name == "recompute-on-write")
+    assert broken.status == "rejected"
+    assert broken.reasons == ["made POST /orders miss its goal (p99 latency under 150 ms): 90.0 ms before, 400 ms now"]
+    assert ev.winner == "stale-while-revalidate"
+    assert ev.fastest_rejected == "recompute-on-write"
+    assert ev.slo_recovered
+
+
+def test_the_slo_is_recovered_only_when_every_goal_is_met():
+    baseline = _two_endpoints("baseline", price_p99=1800, orders_p99=300)      # both goals missed
+    candidates = {"prices-only": _two_endpoints("prices-only", price_p99=5, orders_p99=280)}
+
+    ev = evaluate(baseline, candidates, [PRICE, ORDERS], CONSTRAINTS)
+
+    assert ev.winner == "prices-only"          # valid and better on the primary goal
+    assert not ev.slo_recovered                # but orders still misses its goal
