@@ -7,7 +7,7 @@ over only after the service's own tests and repeated load tests show that it wor
 (`nvidia/Nemotron-3-Ultra-550b-a55b`, served by Nebius Token Factory) proposes the causes and writes the code. It never
 decides whether a fix worked. Measurements and tests decide that, and a person approves the final change.
 
-**Live demo:** https://hotpath-demo.haseebulhaq55.workers.dev. Start a run and watch it, or open an earlier one.
+**Live demo:** https://headroom.haseebulhaq55.workers.dev. Start a run and watch it, or open an earlier one.
 
 Built for the Nebius x NVIDIA Global AI Hackathon 2026, Coding and Agentic Engineering track.
 

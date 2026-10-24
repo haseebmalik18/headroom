@@ -1,6 +1,6 @@
 # Cloudflare hosting
 
-Public dashboard: **https://hotpath-demo.haseebulhaq55.workers.dev**.
+Public dashboard: **https://headroom.haseebulhaq55.workers.dev**.
 Hosting was first deployed on October 24, 2026.
 
 Headroom uses one Cloudflare Worker with Static Assets and a SQLite-backed Durable
@@ -75,10 +75,10 @@ History links and `/api/status`.
 
 ## Connect and publish
 
-The configured Worker name is `hotpath-demo`. A deployment publishes the
+The configured Worker name is `headroom`. A deployment publishes the
 dashboard and bundled history JSON publicly at a `workers.dev` URL; no custom
 domain or paid service is required. The account itself must be on Workers Free.
-If a Worker named `hotpath-demo` already exists, inspect it before deploying or
+If a Worker named `headroom` already exists, inspect it before deploying or
 choose a new name to avoid replacing an unrelated deployment.
 
 After approving account access and deployment:

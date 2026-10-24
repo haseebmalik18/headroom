@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "hotpath-demo",
+  "name": "headroom",
   "account_id": "0cff3fc489aa9c7712a803cf16471428",
   "main": "cloudflare/worker.mjs",
   "compatibility_date": "2025-10-01",
