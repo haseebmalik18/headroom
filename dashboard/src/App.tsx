@@ -7,7 +7,7 @@ import { Steps } from "./components/Steps";
 import { loadIndex, loadRun } from "./data/load";
 import type { Run, RunEvent, RunIndex } from "./data/types";
 import { useLiveFeed } from "./live/sources";
-import { useHostedFeed } from "./live/hosted";
+import { normalizeFailureMode, useHostedFeed, type FailureMode } from "./live/hosted";
 import { buildStory, groupStory, type Meta } from "./live/story";
 import { formatHash, parseHash } from "./replay/hash";
 
@@ -130,12 +130,15 @@ function LocalLiveView() {
 
 function LiveView() { return HOSTED ? <HostedLiveView /> : <LocalLiveView />; }
 
-type FailureMode = "random" | "checkout" | "catalog";
 const FAILURE_MODES: Record<FailureMode, { label: string; load: string }> = {
   random: { label: "Surprise production fault", load: "Up to 750 concurrent users" },
   checkout: { label: "Checkout write contention", load: "650–750 concurrent shoppers" },
   catalog: { label: "Catalog query fan-out", load: "160–200 concurrent browsers" },
 };
+
+function failureDetails(value: unknown) {
+  return FAILURE_MODES[normalizeFailureMode(value)];
+}
 
 function HostedLiveView() {
   const feed = useHostedFeed();
@@ -191,7 +194,7 @@ function HostedLiveView() {
     </header>
     {notices}
     {!running ? startForm : <div className="dispatch-readout" role="status">
-      <div><span>Failure queued</span><strong>{FAILURE_MODES[feed.run?.failure ?? "random"].label}</strong></div>
+      <div><span>Failure queued</span><strong>{failureDetails(feed.run?.failure).label}</strong></div>
       <div><span>Runner state</span><strong>{feed.run?.message}</strong></div>
       <div><span>Run ID</span><strong>{feed.run?.id.slice(0, 8)}</strong></div>
     </div>}
@@ -209,7 +212,7 @@ function HostedLiveView() {
   </main>;
   return <>
     <div className="live-toolbar">
-      <span><b>Live incident</b> / {FAILURE_MODES[challenge.failure].label} / {challenge.dataset} / {challenge.concurrency} concurrent users</span>
+      <span><b>Live incident</b> / {failureDetails(challenge.failure ?? feed.run?.failure ?? challenge.title).label} / {challenge.dataset} / {challenge.concurrency} concurrent users</span>
       {!running && startForm}
     </div>
     {notices}

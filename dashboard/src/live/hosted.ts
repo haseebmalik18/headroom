@@ -1,12 +1,22 @@
 import { useEffect, useReducer, useState } from "react";
 import type { RunEvent } from "../data/types";
 
+export type FailureMode = "random" | "checkout" | "catalog";
+
+export function normalizeFailureMode(value: unknown): FailureMode {
+  if (typeof value !== "string") return "random";
+  const name = value.toLowerCase();
+  if (name.includes("checkout") || name.includes("lock-contention")) return "checkout";
+  if (name.includes("catalog") || name.includes("n-plus-one")) return "catalog";
+  return "random";
+}
+
 export interface LiveRun {
   id: string; seed: number; state: "queued" | "running" | "done" | "failed";
-  failure?: "random" | "checkout" | "catalog";
+  failure?: string;
   created_at: number; finished_at?: number; message: string;
   execution_url: string | null; diff: string | null;
-  challenge: { title: string; dataset: string; failure: "checkout" | "catalog"; concurrency: number; fingerprint: string;
+  challenge: { title: string; dataset: string; failure?: string; concurrency: number; fingerprint: string;
     objective: { endpoint: string; target: number } } | null;
 }
 export interface LiveSnapshot { run: LiveRun | null; events: RunEvent[] }
@@ -86,7 +96,7 @@ export function useHostedFeed() {
     return () => clearInterval(timer);
   }, [snapshot.run?.id, snapshot.run?.state]);
 
-  const start = async (failure: "random" | "checkout" | "catalog") => {
+  const start = async (failure: FailureMode) => {
     if (starting) return;
     setStarting(true); setError(null);
     try {

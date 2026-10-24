@@ -1,9 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { receive, type LiveRun } from "./hosted";
+import { normalizeFailureMode, receive, type LiveRun } from "./hosted";
 
 const run: LiveRun = { id: "one", seed: 42, state: "running", created_at: 0, message: "Running", execution_url: null, diff: null, challenge: null };
 const event = { at: "2026-10-24T12:00:00Z", phase: "baseline", kind: "phase", message: "Measuring baseline", data: {} };
 describe("live event recovery", () => {
+  it("accepts current and persisted failure names", () => {
+    expect(normalizeFailureMode("checkout")).toBe("checkout");
+    expect(normalizeFailureMode("lock-contention")).toBe("checkout");
+    expect(normalizeFailureMode("n-plus-one")).toBe("catalog");
+    expect(normalizeFailureMode("Catalog under load")).toBe("catalog");
+    expect(normalizeFailureMode(undefined)).toBe("random");
+    expect(normalizeFailureMode("unexpected-value")).toBe("random");
+  });
   it("resumes a complete snapshot and ignores duplicate delivery", () => {
     const initial = receive({ run: null, events: [] }, { type: "snapshot", run, events: [event] });
     expect(receive(initial, { type: "event", run, event, sequence: 0 })).toEqual(initial);
