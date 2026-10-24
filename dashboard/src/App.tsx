@@ -149,9 +149,10 @@ function HostedLiveView() {
   const elapsed = Math.max(0, (running ? feed.now : feed.run?.finished_at ?? feed.now) - beginning);
   const startForm = <form className="start-run" onSubmit={(e) => { e.preventDefault(); void feed.start(seed); }}>
     <button type="submit" disabled={feed.starting || feed.connection !== "connected"}>
-      {feed.starting ? "Starting…" : feed.run ? "Start a new investigation" : "Start investigation"}
+      <span>{feed.starting ? "Dispatching…" : feed.run ? "Trigger another incident" : "Trigger a live incident"}</span>
+      <span aria-hidden="true">↗</span>
     </button>
-    <details><summary>Choose a seed</summary><label htmlFor="challenge-seed">Seed <span>(optional)</span></label>
+    <details><summary>Set seed</summary><label htmlFor="challenge-seed">Reproduction seed <span>(optional)</span></label>
       <input id="challenge-seed" inputMode="numeric" type="number" min="0" max="4294967295" step="1" value={seed} onChange={(e) => setSeed(e.target.value)} placeholder="Random" />
     </details>
   </form>;
@@ -160,18 +161,32 @@ function HostedLiveView() {
     {connection && <p className="connection-note" role="status">{connection} {feed.connection !== "connecting" && <button className="text-action" onClick={feed.reconnect}>Reconnect</button>}</p>}
     {feed.error && <p className="run-error" role="alert">{feed.error}</p>}
   </>;
-  if (!challenge) return <main id="main-content" className="live-waiting">
-    <h1>{running ? "Starting investigation" : "Give HotPath a fresh case"}</h1>
-    <p>{running ? feed.run?.message : "Generate a randomized checkout or catalog benchmark. Watch Nemotron investigate, write fixes, and test the result."}</p>
-    {notices}
-    {!running && startForm}
-    {feed.run?.state === "failed" && <p className="run-error">{feed.run.message}</p>}
-    {running && <p className="setup-note">Seed {feed.run?.seed} · A fresh runner can take a minute to start. You can leave this page open.</p>}
-    {!running && <p className="setup-note">One shared run at a time. Three new runs per day. Each run uses fresh measurements and can take several minutes.</p>}
+  if (!challenge) return <main id="main-content" className="live-waiting live-launch">
+    <section className="launch-copy">
+      <p className="launch-kicker"><span aria-hidden="true" /> Live production simulation</p>
+      <h1>{running ? <>Incident dispatched.<br /><em>HotPath is taking over.</em></> : <>Trigger the slowdown.<br /><em>Watch HotPath find it.</em></>}</h1>
+      <p className="launch-deck">{running ? feed.run?.message : "A fresh service goes under real load. HotPath detects the SLO breach, asks Nemotron for competing diagnoses, tests the code, and accepts only a measured fix."}</p>
+      {notices}
+      {!running && startForm}
+      {feed.run?.state === "failed" && <p className="run-error">{feed.run.message}</p>}
+      {running
+        ? <p className="launch-meta">RUN {feed.run?.seed} <span>·</span> GitHub runner starting <span>·</span> Keep this page open</p>
+        : <p className="launch-meta">ISOLATED DOCKER RUNNER <span>·</span> REAL MEASUREMENTS <span>·</span> NO REPLAY</p>}
+    </section>
+    <aside className="autonomy-loop" aria-label="Autonomous investigation sequence">
+      <p>The autonomous loop</p>
+      <ol>
+        <li className={running ? "is-current" : undefined}><span>01</span><div><strong>Boot a fresh service</strong><small>Randomized data, workload, and fault</small></div></li>
+        <li><span>02</span><div><strong>Detect the SLO breach</strong><small>Measure p99 latency under real load</small></div></li>
+        <li><span>03</span><div><strong>Investigate the cause</strong><small>Form hypotheses and run experiments</small></div></li>
+        <li><span>04</span><div><strong>Race candidate fixes</strong><small>Reject anything that breaks correctness</small></div></li>
+        <li><span>05</span><div><strong>Verify the winner</strong><small>Repeated runs must recover the SLO</small></div></li>
+      </ol>
+    </aside>
   </main>;
   return <>
     <div className="live-toolbar">
-      <span>Seed {feed.run!.seed} · {challenge.dataset} · {challenge.concurrency} concurrent users</span>
+      <span><b>Live incident</b> / seed {feed.run!.seed} / {challenge.dataset} / {challenge.concurrency} concurrent users</span>
       {!running && startForm}
     </div>
     {notices}
@@ -206,15 +221,17 @@ export function App() {
     <a href="#main-content" className="skip-link">Skip to content</a>
     <header className="demo-header">
       <div className="demo-header-inner">
-        <a className="logo" href={formatHash({ run: LIVE })}>HotPath</a>
+        <a className="logo" href={formatHash({ run: LIVE })}><span aria-hidden="true" />HotPath</a>
       <nav className="demo-services" aria-label="Investigations">
         <a href={formatHash({ run: LIVE })} aria-current={current === LIVE ? "page" : undefined}><strong>Live</strong></a>
-        {!!index?.runs.length && <span className="history-label">History</span>}
-        {index?.runs.map((r) => (
-          <a key={r.id} href={formatHash({ run: r.id })} aria-current={current === r.id ? "page" : undefined}>
-            <strong>{r.service.replace(/-service$/, "")}</strong>
-          </a>
-        ))}
+        {!!index?.runs.length && <details className="history-menu">
+          <summary>Past runs</summary>
+          <div>{index.runs.map((r) => (
+            <a key={r.id} href={formatHash({ run: r.id })} aria-current={current === r.id ? "page" : undefined}>
+              <strong>{r.service.replace(/-service$/, "")}</strong><span>{r.id.slice(0, 8)}</span>
+            </a>
+          ))}</div>
+        </details>}
       </nav>
         <div className="header-actions">
           <a className="source-link" href={REPO_URL} target="_blank" rel="noreferrer">GitHub</a>
