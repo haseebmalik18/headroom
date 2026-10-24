@@ -57,6 +57,9 @@ Use high confidence only when the measurements clearly discriminate.
 A measurement that falls between the two predicted outcomes does not refute the hypothesis: decide which prediction it \
 is closer to (compare latencies by ratio, not difference), or call the result inconclusive. Disprove a hypothesis \
 only when the measurements match what you predicted if it were false.
+Before counting a measurement against the hypothesis, ask whether the hypothesis itself would cause it: a saturated \
+pool, a busy database or slow queries can be consequences of the cause under test, not evidence against it. If a \
+prediction was wrong only because it ignored such a consequence, discount that prediction rather than the hypothesis.
 The experiment measured the unmodified code; nothing was changed. If a prediction describes the service after a fix, \
 it cannot be tested this way: judge the hypothesis from what the measurements reveal about the current code instead, \
 and never describe a change as having been made.

@@ -96,6 +96,7 @@ async def test_conclude_sees_measurements_and_keeps_hypothesis_id():
     assert "near pool size (20)" in prompt
     assert "measured the unmodified code" in prompt
     assert "does not refute the hypothesis" in prompt
+    assert "whether the hypothesis itself would cause it" in prompt
 
 
 async def test_generate_candidates_lists_protected_files_and_tests():
