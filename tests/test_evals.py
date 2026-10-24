@@ -4,7 +4,7 @@ from headroom.agent.investigator import Context, NotebookEntry, Outcome
 from headroom.agent.schemas import ExperimentConclusion, ExperimentPlan, Hypothesis, Prediction
 from headroom.agent.state import Phase
 from headroom.config import load_config
-from headroom.evals import REFERENCE_DIR, load_scenarios, score_outcome
+from headroom.evals import REFERENCE_DIR, load_scenarios, prepare, score_outcome
 from test_investigator import bench
 from headroom.repository.analyzer import RepositoryMap
 from headroom.config import Objective
@@ -17,7 +17,7 @@ def test_manifest_scenarios_have_repos_and_reference_patches(monkeypatch):
     scenarios = load_scenarios()
 
     assert [s.name for s in scenarios] == ["lock-contention", "n-plus-one", "blocking-event-loop", "sequential-queries",
-                                          "cache-stampede"]
+                                          "cache-stampede", "checkout-throughput"]
     for s in scenarios:
         service = load_config(s.repo).service
         for fix in s.reference_fixes:
@@ -49,3 +49,16 @@ def test_score_matches_root_cause_keywords(monkeypatch):
 
     assert hit.root_cause_identified and not miss.root_cause_identified
     assert hit.valid_fix_generated is False and hit.slo_recovered is False
+
+
+def test_a_scenario_can_run_an_existing_service_under_a_different_goal(monkeypatch, tmp_path):
+    monkeypatch.chdir(ROOT)
+    scenario = next(s for s in load_scenarios() if s.name == "checkout-throughput")
+
+    repo = prepare(scenario, root=tmp_path)
+
+    goal = load_config(repo).objective
+    assert (goal.metric, goal.target) == ("throughput_rps", 240)
+    assert load_config(scenario.repo).objective.metric == "p99_ms"   # the original is untouched
+    assert (repo / "app" / "inventory.py").read_text() == (scenario.repo / "app" / "inventory.py").read_text()
+    assert not (repo / "results").exists()

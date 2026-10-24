@@ -316,7 +316,7 @@ def eval_command(
     """Run every evaluation scenario and print a scorecard."""
     from datetime import datetime, timezone
 
-    from headroom.evals import check_reference, load_scenarios, score_outcome
+    from headroom.evals import check_reference, load_scenarios, prepare, score_outcome
 
     scenarios = [s for s in load_scenarios() if not scenario or s.name in scenario]
     out_dir = Path("evals/results")
@@ -349,7 +349,7 @@ def eval_command(
     scores = []
     for s in scenarios:
         console.print(f"\n[bold]{s.name}[/bold] ({s.repo})")
-        outcome, _ = record_investigation(s.repo, NemotronClient(model=model), Budget(),
+        outcome, _ = record_investigation(prepare(s), NemotronClient(model=model), Budget(),
                                           race_repeats=repeats, verify_runs=verify_runs)
         scores.append(score_outcome(s, outcome))
 

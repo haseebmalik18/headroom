@@ -50,3 +50,15 @@ scenarios:
       - {name: single-flight, expect: valid}
       - {name: stale-while-revalidate, expect: valid}
       - {name: long-ttl, expect: rejected}
+
+  # The checkout service again, judged on throughput instead of latency: the same global lock
+  # also caps how many reservations the service can complete per second.
+  - name: checkout-throughput
+    repo: examples/checkout-service
+    objective: {metric: throughput_rps, target: 240}
+    root_cause: A global asyncio.Lock serializes every inventory reservation, so throughput is capped by one reservation at a time.
+    root_cause_keywords: [lock, serializ, mutex, synchroniz, contention]
+    reference_fixes:
+      - {name: atomic-update, expect: valid}
+      - {name: per-sku-locks, expect: valid}
+      - {name: no-lock, expect: rejected}
