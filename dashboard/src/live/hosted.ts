@@ -1,14 +1,16 @@
 import { useEffect, useReducer, useState } from "react";
 import type { RunEvent } from "../data/types";
 
-export type FailureMode = "random" | "checkout" | "catalog";
+export type FailureMode = "checkout" | "catalog" | "auth" | "dashboard";
 
 export function normalizeFailureMode(value: unknown): FailureMode {
-  if (typeof value !== "string") return "random";
+  if (typeof value !== "string") return "checkout";
   const name = value.toLowerCase();
   if (name.includes("checkout") || name.includes("lock-contention")) return "checkout";
   if (name.includes("catalog") || name.includes("n-plus-one")) return "catalog";
-  return "random";
+  if (name.includes("auth") || name.includes("event-loop") || name.includes("blocking")) return "auth";
+  if (name.includes("dashboard") || name.includes("sequential")) return "dashboard";
+  return "checkout";
 }
 
 export interface LiveRun {

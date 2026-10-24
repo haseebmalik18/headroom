@@ -9,8 +9,11 @@ describe("live event recovery", () => {
     expect(normalizeFailureMode("lock-contention")).toBe("checkout");
     expect(normalizeFailureMode("n-plus-one")).toBe("catalog");
     expect(normalizeFailureMode("Catalog under load")).toBe("catalog");
-    expect(normalizeFailureMode(undefined)).toBe("random");
-    expect(normalizeFailureMode("unexpected-value")).toBe("random");
+    expect(normalizeFailureMode("blocking-event-loop")).toBe("auth");
+    expect(normalizeFailureMode("Authentication under load")).toBe("auth");
+    expect(normalizeFailureMode("sequential-queries")).toBe("dashboard");
+    expect(normalizeFailureMode(undefined)).toBe("checkout");
+    expect(normalizeFailureMode("unexpected-value")).toBe("checkout");
   });
   it("hides only completed runs from the previous schema", () => {
     const legacy = { ...run, state: "done" as const, challenge: { title: "Catalog under load", dataset: "legacy", concurrency: 60,

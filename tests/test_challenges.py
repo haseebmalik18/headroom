@@ -16,15 +16,19 @@ def test_seed_reproduces_exact_case_without_overwriting(tmp_path):
     assert fingerprint(a.repo) == fingerprint(b.repo) == a.public["fingerprint"]
 
 
-def test_both_families_vary_data_and_keep_correctness_judges(tmp_path):
+def test_all_families_vary_data_and_keep_correctness_judges(tmp_path):
     families, datasets = set(), set()
     project = Path(__file__).resolve().parents[1]
-    for seed in range(12):
-        case = generate_challenge(seed, root=tmp_path)
+    concurrency = {
+        "checkout": {650, 700, 750}, "catalog": {160, 180, 200},
+        "auth": {180, 200, 220}, "dashboard": {5, 6, 8},
+    }
+    for seed, selected_family in enumerate(TEMPLATES):
+        case = generate_challenge(seed, family=selected_family, root=tmp_path)
         manifest = json.loads((case.repo.parent / "manifest.json").read_text())
         families.add(manifest["family"])
         assert case.public["failure"] == manifest["family"]
-        assert case.public["concurrency"] in ({650, 700, 750} if manifest["family"] == "checkout" else {160, 180, 200})
+        assert case.public["concurrency"] in concurrency[manifest["family"]]
         datasets.add(case.public["dataset"])
         source = project / TEMPLATES[manifest["family"]]
         for test in (source / "tests").glob("*.py"):
@@ -37,11 +41,11 @@ def test_both_families_vary_data_and_keep_correctness_judges(tmp_path):
         assert "manifest.json" not in context.tree
         assert not any("reference" in f for f in context.tree)
         assert context.relevant_files
-    assert families == {"checkout", "catalog"}
+    assert families == set(TEMPLATES)
     assert len(datasets) >= 4
 
 
-@pytest.mark.parametrize("family", ["checkout", "catalog"])
+@pytest.mark.parametrize("family", TEMPLATES)
 def test_allowlisted_failure_mode_selects_family_without_entering_repo(family, tmp_path):
     case = generate_challenge(42, family=family, root=tmp_path)
     assert case.public["failure"] == family

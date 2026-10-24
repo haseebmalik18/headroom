@@ -20,8 +20,13 @@ from hotpath.config import load_config
 PROJECT = Path(__file__).resolve().parents[1]
 VERSION = 1
 MAX_SEED = 2**32 - 1
-FAMILIES = ("checkout", "catalog")
-TEMPLATES = {"checkout": "examples/checkout-service", "catalog": "evals/scenarios/catalog-service"}
+FAMILIES = ("checkout", "catalog", "auth", "dashboard")
+TEMPLATES = {
+    "checkout": "examples/checkout-service",
+    "catalog": "evals/scenarios/catalog-service",
+    "auth": "evals/scenarios/auth-service",
+    "dashboard": "evals/scenarios/dashboard-service",
+}
 
 
 def fingerprint(repo: Path) -> str:
@@ -81,7 +86,7 @@ def generate_challenge(seed: int | None = None, *, family: str | None = None,
         _replace(repo / "load/reserve.js", "__ENV.SKU_COUNT || '1000'", f"__ENV.SKU_COUNT || '{products}'")
         title = "Checkout under load"
         dataset = f"{products:,} products"
-    else:
+    elif family == "catalog":
         per_category = rng.choice((30, 40, 50, 60))
         concurrency = rng.choice((160, 180, 200))
         think_ms = rng.choice((1000, 1200, 1500))
@@ -90,6 +95,17 @@ def generate_challenge(seed: int | None = None, *, family: str | None = None,
         _replace(repo / "db/schema.sql", "setseed(0.42)", f"setseed({rng.uniform(-1, 1):.8f})")
         title = "Catalog under load"
         dataset = f"50 categories · {per_category} products each"
+    elif family == "auth":
+        concurrency = rng.choice((180, 200, 220))
+        think_ms = rng.choice((400, 500, 650))
+        title = "Authentication under load"
+        dataset = "100 accounts · 8 logins/s"
+    else:
+        concurrency = rng.choice((5, 6, 8))
+        think_ms = rng.choice((400, 500, 650))
+        _replace(repo / "db/schema.sql", "SELECT setseed(0.7);", f"SELECT setseed({rng.uniform(-1, 1):.8f});")
+        title = "Analytics dashboard under load"
+        dataset = "20 stores · 400,000 orders"
 
     config["workload"].update(concurrency=concurrency, think_ms=think_ms)
     # The data and dependency definitions are part of the challenge, not an

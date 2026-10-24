@@ -60,7 +60,7 @@ export class LiveDemo {
 
   async start(data, request) {
     if (Object.keys(data).some((key) => key !== "failure") ||
-        !["random", "checkout", "catalog"].includes(data.failure ?? "random")) {
+        !["random", "checkout", "catalog", "auth", "dashboard"].includes(data.failure ?? "random")) {
       return json({ error: "Choose a supported failure mode." }, 400);
     }
     const now = Date.now();

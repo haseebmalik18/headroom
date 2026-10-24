@@ -74,13 +74,13 @@ test("a reserved run is claimed once and keeps an ordered live event log", async
   assert.equal(dispatches.length, 0);
 
   const request = () => new Request("https://demo.example/api/demo/start", {
-    method: "POST", headers: { "Content-Type": "application/json", "CF-Connecting-IP": "192.0.2.1" }, body: "{\"failure\":\"checkout\"}",
+    method: "POST", headers: { "Content-Type": "application/json", "CF-Connecting-IP": "192.0.2.1" }, body: "{\"failure\":\"auth\"}",
   });
   const started = await demo.fetch(request());
   assert.equal(started.status, 202);
   const run = (await started.json()).run;
   assert.equal(dispatches.length, 1);
-  assert.deepEqual(dispatches[0][1].inputs, { run_id: run.id, seed: String(run.seed), failure: "checkout" });
+  assert.deepEqual(dispatches[0][1].inputs, { run_id: run.id, seed: String(run.seed), failure: "auth" });
 
   const joined = await demo.fetch(request());
   assert.equal((await joined.json()).joined, true);

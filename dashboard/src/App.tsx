@@ -131,9 +131,10 @@ function LocalLiveView() {
 function LiveView() { return HOSTED ? <HostedLiveView /> : <LocalLiveView />; }
 
 const FAILURE_MODES: Record<FailureMode, { label: string; load: string }> = {
-  random: { label: "Surprise production fault", load: "Up to 750 concurrent users" },
-  checkout: { label: "Checkout write contention", load: "650–750 concurrent shoppers" },
-  catalog: { label: "Catalog query fan-out", load: "160–200 concurrent browsers" },
+  checkout: { label: "Checkout lock contention", load: "650–750 concurrent shoppers" },
+  catalog: { label: "Catalog N+1 queries", load: "160–200 concurrent browsers" },
+  auth: { label: "Auth event-loop blocking", load: "180–220 readers · 8 logins/s" },
+  dashboard: { label: "Dashboard serial queries", load: "5–8 dashboards · 400K orders" },
 };
 
 function failureDetails(value: unknown) {
@@ -142,7 +143,7 @@ function failureDetails(value: unknown) {
 
 function HostedLiveView() {
   const feed = useHostedFeed();
-  const [failure, setFailure] = useState<FailureMode>("random");
+  const [failure, setFailure] = useState<FailureMode>("checkout");
   const run = isLegacyCompletedRun(feed.run) ? null : feed.run;
   const running = run && ["queued", "running"].includes(run.state);
   const challenge = run?.challenge;
