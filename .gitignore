@@ -6,6 +6,7 @@ __pycache__/
 .venv/
 .pytest_cache/
 .headroom/
+.hotpath/
 results/
 node_modules/
 .DS_Store
