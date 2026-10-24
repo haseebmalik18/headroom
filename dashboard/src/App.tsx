@@ -17,6 +17,7 @@ const HOSTED = import.meta.env.MODE === "cloudflare";
 const TITLES: Record<string, string> = {
   "lock-contention": "Slow checkout under load",
   "n-plus-one": "Slow catalog pages",
+  "cache-stampede": "Pricing spikes during a sale",
   "blocking-event-loop": "Stalling profile requests",
 };
 
@@ -141,6 +142,7 @@ const FAILURE_MODES: Record<FailureMode, { label: string; load: string }> = {
   catalog: { label: "Catalog N+1 queries", load: "160–200 concurrent browsers" },
   auth: { label: "Auth event-loop blocking", load: "180–220 readers · 8 logins/s" },
   dashboard: { label: "Dashboard serial queries", load: "5–8 dashboards · 400K orders" },
+  pricing: { label: "Pricing during a sale", load: "180–220 shoppers on 5 bestsellers" },
 };
 
 function failureDetails(value: unknown) {

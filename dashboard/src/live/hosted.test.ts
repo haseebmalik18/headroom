@@ -12,6 +12,9 @@ describe("live event recovery", () => {
     expect(normalizeFailureMode("blocking-event-loop")).toBe("auth");
     expect(normalizeFailureMode("Authentication under load")).toBe("auth");
     expect(normalizeFailureMode("sequential-queries")).toBe("dashboard");
+    expect(normalizeFailureMode("pricing")).toBe("pricing");
+    expect(normalizeFailureMode("cache-stampede")).toBe("pricing");
+    expect(normalizeFailureMode("Pricing during a sale")).toBe("pricing");
     expect(normalizeFailureMode(undefined)).toBe("checkout");
     expect(normalizeFailureMode("unexpected-value")).toBe("checkout");
   });

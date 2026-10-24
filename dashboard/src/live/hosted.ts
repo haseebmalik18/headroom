@@ -1,7 +1,7 @@
 import { useEffect, useReducer, useState } from "react";
 import type { RunEvent } from "../data/types";
 
-export type FailureMode = "checkout" | "catalog" | "auth" | "dashboard";
+export type FailureMode = "checkout" | "catalog" | "auth" | "dashboard" | "pricing";
 
 export function normalizeFailureMode(value: unknown): FailureMode {
   if (typeof value !== "string") return "checkout";
@@ -10,6 +10,7 @@ export function normalizeFailureMode(value: unknown): FailureMode {
   if (name.includes("catalog") || name.includes("n-plus-one")) return "catalog";
   if (name.includes("auth") || name.includes("event-loop") || name.includes("blocking")) return "auth";
   if (name.includes("dashboard") || name.includes("sequential")) return "dashboard";
+  if (name.includes("pricing") || name.includes("stampede")) return "pricing";
   return "checkout";
 }
 
