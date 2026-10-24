@@ -101,14 +101,15 @@ def race_command(
         console.print(f"[dim]race report written to {output}[/dim]")
 
 
-def record_investigation(repo: Path, client, budget, *, verbose: bool = False, **lab_options):
+def record_investigation(repo: Path, client, budget, *, verbose: bool = False,
+                         store=None, on_record=None, **lab_options):
     """Run an investigation, recording every event, model call and benchmark stage as it happens."""
     from hotpath.agent.investigator import Investigator
     from hotpath.agent.lab import LocalLab
     from hotpath.agent.reasoner import NemotronReasoner
     from hotpath.agent.store import InvestigationStore
 
-    store = InvestigationStore.create(repo)
+    store = store or InvestigationStore.create(repo)
     investigator: Investigator | None = None
 
     def progress(message: str) -> None:
@@ -120,6 +121,8 @@ def record_investigation(repo: Path, client, budget, *, verbose: bool = False, *
     def on_event(event) -> None:
         store.record(event)
         print_event(event)
+        if on_record:
+            on_record(event)
 
     investigator = Investigator(NemotronReasoner(client, repo), LocalLab(repo, log=progress, **lab_options), budget,
                                 on_event=on_event)
@@ -127,6 +130,18 @@ def record_investigation(repo: Path, client, budget, *, verbose: bool = False, *
     outcome = asyncio.run(investigator.run())
     store.save_outcome(outcome, client.calls)
     return outcome, store
+
+
+@app.command("challenge")
+def challenge_command(
+    seed: Annotated[Optional[int], typer.Option(min=0, max=2**32 - 1, help="Reproduce a case; omit for a fresh seed")] = None,
+) -> None:
+    """Generate a random benchmark case without using Docker or model credits."""
+    from hotpath.challenges import generate_challenge
+
+    challenge = generate_challenge(seed)
+    console.print_json(json.dumps({**challenge.public, "repo": str(challenge.repo)}))
+    console.print(f"Run with: hotpath investigate {challenge.repo}")
 
 
 @app.command("investigate")

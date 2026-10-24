@@ -1,0 +1,25 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "hotpath-demo",
+  "account_id": "0cff3fc489aa9c7712a803cf16471428",
+  "main": "cloudflare/worker.mjs",
+  "compatibility_date": "2025-10-01",
+  "workers_dev": true,
+  "preview_urls": false,
+  "send_metrics": false,
+  "vars": {
+    "LIVE_ENABLED": "false",
+    "GITHUB_REPOSITORY": "haseebmalik18/hotpath",
+    "GITHUB_REF": "main"
+  },
+  "durable_objects": {
+    "bindings": [{ "name": "LIVE_DEMO", "class_name": "LiveDemo" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["LiveDemo"] }],
+  "assets": {
+    "directory": "./dist-cloudflare",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  }
+}

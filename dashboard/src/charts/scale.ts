@@ -41,7 +41,7 @@ export function valueScale(values: number[], range: [number, number]) {
 
 export function formatMs(v: number): string {
   if (v >= 1000) return `${Math.round(v).toLocaleString("en-US")} ms`;
-  if (v >= 100) return `${Math.round(v)} ms`;
+  if (v >= 100 || Number.isInteger(v)) return `${Math.round(v)} ms`;
   return `${v.toFixed(1)} ms`;
 }
 

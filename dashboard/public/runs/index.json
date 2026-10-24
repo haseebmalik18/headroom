@@ -1,6 +1,32 @@
 {
-  "featured": "20261023-221348-auth-service",
+  "featured": "20261024-033050-checkout-service",
   "runs": [
+    {
+      "id": "20261024-033050-catalog-service",
+      "title": "n-plus-one",
+      "scenario": "n-plus-one",
+      "service": "catalog-service",
+      "endpoint": "GET /catalog/categories/{category_id}/products",
+      "phase": "awaiting_approval",
+      "winner": "lateral-join-single-query",
+      "baseline_ms": 74.31,
+      "final_ms": 4.62,
+      "recorded_at": "2026-10-24T03:30:50.430371+00:00",
+      "actions_url": "https://github.com/haseebmalik18/hotpath/actions/runs/40058589734"
+    },
+    {
+      "id": "20261024-033050-checkout-service",
+      "title": "lock-contention",
+      "scenario": "lock-contention",
+      "service": "checkout-service",
+      "endpoint": "POST /inventory/reserve",
+      "phase": "awaiting_approval",
+      "winner": "db-select-for-update",
+      "baseline_ms": 767.91,
+      "final_ms": 9.09,
+      "recorded_at": "2026-10-24T03:30:50.149779+00:00",
+      "actions_url": "https://github.com/haseebmalik18/hotpath/actions/runs/40058589734"
+    },
     {
       "id": "20261023-221348-auth-service",
       "title": "blocking-event-loop",
@@ -13,32 +39,6 @@
       "final_ms": 5.23,
       "recorded_at": "2026-10-23T22:13:48.917062+00:00",
       "actions_url": "https://github.com/haseebmalik18/hotpath/actions/runs/40032208236"
-    },
-    {
-      "id": "20261021-202911-catalog-service",
-      "title": "n-plus-one",
-      "scenario": "n-plus-one",
-      "service": "catalog-service",
-      "endpoint": "GET /catalog/categories/{category_id}/products",
-      "phase": "awaiting_approval",
-      "winner": "batch_queries_with_in",
-      "baseline_ms": 127.38,
-      "final_ms": 6.71,
-      "recorded_at": "2026-10-21T20:29:11.498755+00:00",
-      "actions_url": "https://github.com/haseebmalik18/hotpath/actions/runs/39670669608"
-    },
-    {
-      "id": "20261021-202911-checkout-service",
-      "title": "lock-contention",
-      "scenario": "lock-contention",
-      "service": "checkout-service",
-      "endpoint": "POST /inventory/reserve",
-      "phase": "awaiting_approval",
-      "winner": "atomic-update-reservation",
-      "baseline_ms": 831.22,
-      "final_ms": 8.68,
-      "recorded_at": "2026-10-21T20:29:11.427957+00:00",
-      "actions_url": "https://github.com/haseebmalik18/hotpath/actions/runs/39670669608"
     }
   ]
 }

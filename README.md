@@ -36,7 +36,44 @@ artifacts (JUnit XML, k6 summaries, server spans, `result.json`) land in `.hotpa
 A target repository describes its objective and how to run it in a `hotpath.yaml`
 (see [examples/checkout-service/hotpath.yaml](examples/checkout-service/hotpath.yaml)).
 
+## Live demo
+
+Build the dashboard once, then start the live server from the project root:
+
+```bash
+npm --prefix dashboard ci
+npm --prefix dashboard run build
+uv run hotpath serve
+```
+
+Open **http://127.0.0.1:8765/hotpath/**. In a second terminal, start an investigation:
+
+```bash
+uv run hotpath investigate examples/checkout-service
+```
+
+Docker must be running, and `NEBIUS_API_KEY` and `NEMOTRON_MODEL` must be configured
+as in Quick start. The investigation uses model credits; the dashboard itself only
+reads events. It follows measurements, reasoning, candidate tests, and verification
+as they happen, then exposes the verified patch for review. It reconnects after a
+connection interruption and detects the next investigation automatically. If the
+latest run has already ended, it is labeled as completed. History shows saved results
+without simulated playback.
+
+For frontend development, run `npm --prefix dashboard run dev` alongside
+`uv run hotpath serve`; Vite proxies `/api` to port 8765.
+
+The public dashboard uses Cloudflare as a small coordinator and a GitHub-hosted
+runner for the Docker work. A visitor can start one of the randomized benchmark
+cases directly in the browser and watch the same evidence arrive over a live
+connection. The runner accepts only a generated run ID and numeric seed; the
+repository, model, workload, and commands are fixed by the workflow.
+
 ## Repository
+
+Cloudflare hosting configuration and free-plan limits are documented in
+[docs/cloudflare.md](docs/cloudflare.md). The hosting build remains separate from
+the local dashboard and server.
 
 | Path | What |
 |---|---|

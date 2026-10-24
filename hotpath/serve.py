@@ -48,6 +48,7 @@ def make_server(port: int, *, root: Path = ROOT, dist: Path | None = None) -> Th
             self.send_response(status)
             self.send_header("Content-Type", content_type)
             self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-store")
             self.send_header("Access-Control-Allow-Origin", "*")
             self.end_headers()
             self.wfile.write(body)
@@ -71,20 +72,41 @@ def make_server(port: int, *, root: Path = ROOT, dist: Path | None = None) -> Th
             names = investigations(root)
             name = names[0] if ref == "latest" and names else ref
             path = root / name
-            if "/" in name or not (path / "events.jsonl").exists():
+            if Path(name).name != name or not (path / "events.jsonl").exists():
                 self._send(404, b"no such investigation", "text/plain")
                 return
             self.send_response(200)
             self.send_header("Content-Type", "text/event-stream")
             self.send_header("Cache-Control", "no-cache")
+            self.send_header("X-Accel-Buffering", "no")
             self.send_header("Access-Control-Allow-Origin", "*")
             self.end_headers()
             try:
                 self.wfile.write(f"event: investigation\ndata: {json.dumps({'id': name})}\n\n".encode())
-                for line in follow(path / "events.jsonl", lambda: (path / "outcome.json").exists()):
-                    self.wfile.write(f"data: {line}\n\n".encode())
+                self.wfile.flush()
+                try:
+                    last_event = int(self.headers.get("Last-Event-ID", "-1"))
+                except ValueError:
+                    last_event = -1
+                for sequence, line in enumerate(follow(path / "events.jsonl", lambda: (path / "outcome.json").exists())):
+                    if sequence <= last_event:
+                        continue
+                    self.wfile.write(f"id: {sequence}\ndata: {line}\n\n".encode())
                     self.wfile.flush()
-                self.wfile.write(b"event: done\ndata: {}\n\n")
+                # save_outcome writes outcome.json before winner.diff; read the patch from
+                # the outcome and tolerate the brief interval while JSON is being written.
+                outcome = None
+                for _ in range(20):
+                    try:
+                        outcome = json.loads((path / "outcome.json").read_text())
+                        break
+                    except (json.JSONDecodeError, FileNotFoundError):
+                        time.sleep(0.05)
+                if outcome is None:
+                    return  # Reconnection will resume after the final event.
+                result = {key: outcome.get(key) for key in ("winner", "diff")}
+                self.wfile.write(f"event: done\ndata: {json.dumps(result)}\n\n".encode())
+                self.wfile.flush()
             except (BrokenPipeError, ConnectionResetError):
                 pass  # the browser went away
 

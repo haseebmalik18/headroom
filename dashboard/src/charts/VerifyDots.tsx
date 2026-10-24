@@ -1,6 +1,6 @@
 import type { Distribution } from "../data/types";
 import { formatMs, formatTick, valueScale } from "./scale";
-import { useWidth } from "./useWidth";
+import { useSize } from "./useSize";
 
 interface Props {
   baseline: Distribution | null;
@@ -13,10 +13,10 @@ const PAD = { left: 84, right: 24, top: 28, bottom: 28 };
 
 /** Every verification run as a dot, per series, with the 95% CI of the median shaded and the target line. */
 export function VerifyDots({ baseline, patched, target }: Props) {
-  const [ref, width] = useWidth<HTMLDivElement>();
+  const [ref, { width }] = useSize<HTMLDivElement>();
   const series = [
-    ...(baseline ? [{ name: "baseline", d: baseline, color: "var(--series-2)" }] : []),
-    { name: "patched", d: patched, color: "var(--series-1)" },
+    ...(baseline ? [{ name: "before", d: baseline, color: "var(--slow)" }] : []),
+    { name: "with the fix", d: patched, color: "var(--fast)" },
   ];
   const all = series.flatMap((s) => s.d.values).concat(target);
   const { scale, ticks, log } = valueScale(all, [PAD.left, Math.max(width - PAD.right, PAD.left + 50)]);

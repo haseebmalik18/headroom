@@ -1,0 +1,55 @@
+name: Live demo
+run-name: Live investigation ${{ inputs.run_id }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Reservation from the public demo coordinator
+        required: true
+      seed:
+        description: Seed for a fresh benchmark case
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: live-demo
+  cancel-in-progress: false
+
+jobs:
+  investigate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      COLUMNS: "120"
+      DEMO_RUN_ID: ${{ inputs.run_id }}
+      DEMO_SEED: ${{ inputs.seed }}
+      DEMO_URL: ${{ vars.DEMO_URL }}
+      DEMO_CALLBACK_SECRET: ${{ secrets.DEMO_CALLBACK_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --frozen
+      - name: Investigate and publish progress
+        env:
+          NEBIUS_API_KEY: ${{ secrets.NEBIUS_API_KEY }}
+          NEMOTRON_MODEL: nvidia/Nemotron-3-Ultra-550b-a55b
+        run: uv run python -m hotpath.demo_runner
+      - name: Report runner failure
+        if: failure() || cancelled()
+        run: python3 -m hotpath.demo_runner --failed
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: live-investigation-${{ inputs.run_id }}
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 7
+          path: |
+            .hotpath/challenges/
+            .hotpath/investigations/
+            .hotpath/runs/

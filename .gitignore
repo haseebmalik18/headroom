@@ -12,3 +12,7 @@ node_modules/
 evals/results/
 PROGRESS.md
 docs/hackathon-feedback.md
+.wrangler/
+.dev.vars
+.dev.vars.*
+dashboard/dist-cloudflare/
