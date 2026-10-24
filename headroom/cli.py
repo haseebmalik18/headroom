@@ -430,7 +430,7 @@ def verify_command(
         else:
             result = await run_benchmark(repo, label="candidate", workloads=[workload] * runs,
                                          log=lambda m: log(f"[candidate] {m}"))
-        return build_report(result, config.objective, baseline)
+        return build_report(result, config.objectives, baseline)
 
     report = asyncio.run(go())
     _print_verification(report)

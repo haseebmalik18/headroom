@@ -19,8 +19,18 @@ class RunStatistics(BaseModel):
     slo_met_runs: int             # how many individual runs met the target
 
 
-class VerificationReport(BaseModel):
+class GoalCheck(BaseModel):
+    """One objective across the repeated runs."""
+
     objective: Objective
+    baseline: Distribution | None
+    candidate: Distribution
+    met: bool                     # the candidate's whole confidence interval meets this objective
+
+
+class VerificationReport(BaseModel):
+    objective: Objective          # the primary objective (what `candidate.metric` describes)
+    goals: list[GoalCheck] = []
     baseline: RunStatistics | None
     candidate: RunStatistics
     metric_comparison: Comparison | None
@@ -32,7 +42,7 @@ class VerificationReport(BaseModel):
 def summarize(result: BenchmarkResult, objective: Objective) -> RunStatistics:
     if not result.runs:
         raise ValueError(f"{result.label}: no load runs to summarize ({result.error or 'unknown error'})")
-    metric_values = [getattr(r.load, objective.metric) for r in result.runs]
+    metric_values = [r.load.value(objective) for r in result.runs]
     memory = [r.containers["app"].memory_mb_max for r in result.runs if "app" in r.containers]
     return RunStatistics(
         label=result.label,
@@ -47,18 +57,30 @@ def summarize(result: BenchmarkResult, objective: Objective) -> RunStatistics:
     )
 
 
+def _check(candidate: BenchmarkResult, baseline: BenchmarkResult | None, objective: Objective) -> GoalCheck:
+    values = describe([r.load.value(objective) for r in candidate.runs])
+    # The whole interval must meet the target: its worst end decides.
+    worst = values.ci_low if objective.higher_is_better else values.ci_high
+    return GoalCheck(
+        objective=objective, candidate=values, met=objective.met(worst),
+        baseline=describe([r.load.value(objective) for r in baseline.runs]) if baseline and baseline.runs else None,
+    )
+
+
 def build_report(
-    candidate: BenchmarkResult, objective: Objective, baseline: BenchmarkResult | None = None
+    candidate: BenchmarkResult, objectives: Objective | list[Objective], baseline: BenchmarkResult | None = None
 ) -> VerificationReport:
+    goals = [objectives] if isinstance(objectives, Objective) else list(objectives)
+    objective = goals[0]
     cand = summarize(candidate, objective)
     base = summarize(baseline, objective) if baseline else None
+    checks = [_check(candidate, baseline, goal) for goal in goals]
     return VerificationReport(
         objective=objective,
+        goals=checks,
         baseline=base,
         candidate=cand,
         metric_comparison=compare(base.metric, cand.metric) if base else None,
         throughput_comparison=compare(base.throughput_rps, cand.throughput_rps) if base else None,
-        # The whole interval must meet the target: its worst end decides.
-        slo_recovered=objective.met(cand.metric.ci_low if objective.higher_is_better else cand.metric.ci_high)
-        and bool(candidate.tests and candidate.tests.ok),
+        slo_recovered=all(c.met for c in checks) and bool(candidate.tests and candidate.tests.ok),
     )

@@ -79,3 +79,24 @@ def test_throughput_is_verified_by_the_low_end_of_its_interval():
     assert build_report(steady, goal).slo_recovered
     assert not build_report(marginal, goal).slo_recovered
     assert build_report(steady, goal).candidate.slo_met_runs == 7
+
+
+def test_every_objective_must_hold_across_the_repeated_runs():
+    from headroom.benchmark.results import EndpointStats
+
+    price = Objective(endpoint="GET /price", metric="p99_ms", target=100)
+    orders = Objective(endpoint="POST /orders", metric="p99_ms", target=150)
+    result = _repeated("fix", [5, 5, 5, 5, 5, 5, 5], rps=200)
+    for run, orders_p99 in zip(result.runs, [120, 130, 140, 160, 170, 155, 165]):   # orders hovers over its goal
+        run.load.endpoints = {
+            "GET /price": EndpointStats(requests=900, p50_ms=2, p95_ms=4, p99_ms=5, throughput_rps=180, error_rate=0),
+            "POST /orders": EndpointStats(requests=100, p50_ms=40, p95_ms=90, p99_ms=orders_p99, throughput_rps=20,
+                                          error_rate=0),
+        }
+
+    report = build_report(result, [price, orders])
+
+    assert [g.objective.endpoint for g in report.goals] == ["GET /price", "POST /orders"]
+    assert [g.met for g in report.goals] == [True, False]
+    assert not report.slo_recovered
+    assert report.candidate.metric.median == 5          # the headline is still the primary objective

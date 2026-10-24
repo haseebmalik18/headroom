@@ -56,4 +56,4 @@ class LocalLab:
         baseline = await run_benchmark(self.repo, label="verify-baseline", workloads=workloads,
                                        run_tests=False, log=lambda m: self.log(f"[verify baseline] {m}"))
         candidate = (await self.backend.evaluate_candidate(winner.candidate, workloads)).result
-        return build_report(candidate, self.config.objective, baseline)
+        return build_report(candidate, self.config.objectives, baseline)
