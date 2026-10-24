@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeFailureMode, receive, type LiveRun } from "./hosted";
+import { isLegacyCompletedRun, normalizeFailureMode, receive, type LiveRun } from "./hosted";
 
 const run: LiveRun = { id: "one", seed: 42, state: "running", created_at: 0, message: "Running", execution_url: null, diff: null, challenge: null };
 const event = { at: "2026-10-24T12:00:00Z", phase: "baseline", kind: "phase", message: "Measuring baseline", data: {} };
@@ -11,6 +11,13 @@ describe("live event recovery", () => {
     expect(normalizeFailureMode("Catalog under load")).toBe("catalog");
     expect(normalizeFailureMode(undefined)).toBe("random");
     expect(normalizeFailureMode("unexpected-value")).toBe("random");
+  });
+  it("hides only completed runs from the previous schema", () => {
+    const legacy = { ...run, state: "done" as const, challenge: { title: "Catalog under load", dataset: "legacy", concurrency: 60,
+      fingerprint: "old", objective: { endpoint: "GET /catalog", target: 50 } } };
+    expect(isLegacyCompletedRun(legacy)).toBe(true);
+    expect(isLegacyCompletedRun({ ...legacy, failure: "catalog" })).toBe(false);
+    expect(isLegacyCompletedRun({ ...legacy, state: "running" })).toBe(false);
   });
   it("resumes a complete snapshot and ignores duplicate delivery", () => {
     const initial = receive({ run: null, events: [] }, { type: "snapshot", run, events: [event] });

@@ -19,6 +19,11 @@ export interface LiveRun {
   challenge: { title: string; dataset: string; failure?: string; concurrency: number; fingerprint: string;
     objective: { endpoint: string; target: number } } | null;
 }
+
+export function isLegacyCompletedRun(run: LiveRun | null): boolean {
+  return !!run && ["done", "failed"].includes(run.state) && !run.failure && !run.challenge?.failure;
+}
+
 export interface LiveSnapshot { run: LiveRun | null; events: RunEvent[] }
 export type LiveFrame =
   | ({ type: "snapshot" } & LiveSnapshot)

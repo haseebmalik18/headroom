@@ -7,7 +7,7 @@ import { Steps } from "./components/Steps";
 import { loadIndex, loadRun } from "./data/load";
 import type { Run, RunEvent, RunIndex } from "./data/types";
 import { useLiveFeed } from "./live/sources";
-import { normalizeFailureMode, useHostedFeed, type FailureMode } from "./live/hosted";
+import { isLegacyCompletedRun, normalizeFailureMode, useHostedFeed, type FailureMode } from "./live/hosted";
 import { buildStory, groupStory, type Meta } from "./live/story";
 import { formatHash, parseHash } from "./replay/hash";
 
@@ -143,17 +143,19 @@ function failureDetails(value: unknown) {
 function HostedLiveView() {
   const feed = useHostedFeed();
   const [failure, setFailure] = useState<FailureMode>("random");
-  const running = feed.run && ["queued", "running"].includes(feed.run.state);
-  const challenge = feed.run?.challenge;
+  const run = isLegacyCompletedRun(feed.run) ? null : feed.run;
+  const running = run && ["queued", "running"].includes(run.state);
+  const challenge = run?.challenge;
   const events = useMemo(() => {
-    if (feed.run?.state !== "failed" || feed.events.some((e) => ["awaiting_approval", "unresolved", "slo_already_met"].includes(e.phase))) return feed.events;
-    return [...feed.events, { at: new Date(feed.run.finished_at ?? Date.now()).toISOString(), phase: "unresolved", kind: "phase",
-      message: `Unresolved: ${feed.run.message}`, data: {} }];
-  }, [feed.events, feed.run]);
+    if (!run) return [];
+    if (run.state !== "failed" || feed.events.some((e) => ["awaiting_approval", "unresolved", "slo_already_met"].includes(e.phase))) return feed.events;
+    return [...feed.events, { at: new Date(run.finished_at ?? Date.now()).toISOString(), phase: "unresolved", kind: "phase",
+      message: `Unresolved: ${run.message}`, data: {} }];
+  }, [feed.events, run]);
   const meta = useMemo<Meta>(() => ({ endpoint: challenge?.objective.endpoint ?? "", service: challenge?.title ?? "Live investigation",
     target: challenge?.objective.target ?? 100, candidates: [] }), [challenge]);
-  const beginning = events.length ? Date.parse(events[0].at) : feed.run?.created_at ?? feed.now;
-  const elapsed = Math.max(0, (running ? feed.now : feed.run?.finished_at ?? feed.now) - beginning);
+  const beginning = events.length ? Date.parse(events[0].at) : run?.created_at ?? feed.now;
+  const elapsed = Math.max(0, (running ? feed.now : run?.finished_at ?? feed.now) - beginning);
   const selected = FAILURE_MODES[failure];
   const startForm = <form className="incident-controls" onSubmit={(e) => { e.preventDefault(); void feed.start(failure); }}>
     <label className="incident-field">
@@ -170,7 +172,7 @@ function HostedLiveView() {
       <small>Fresh data and timing on every run.</small>
     </div>
     <button type="submit" disabled={feed.starting || feed.connection !== "connected"}>
-      <span>{feed.starting ? "Injecting…" : feed.run ? "Inject another failure" : "Inject failure and start"}</span>
+      <span>{feed.starting ? "Injecting…" : run ? "Inject another failure" : "Inject failure and start"}</span>
       <span aria-hidden="true">↗</span>
     </button>
   </form>;
@@ -194,11 +196,11 @@ function HostedLiveView() {
     </header>
     {notices}
     {!running ? startForm : <div className="dispatch-readout" role="status">
-      <div><span>Failure queued</span><strong>{failureDetails(feed.run?.failure).label}</strong></div>
-      <div><span>Runner state</span><strong>{feed.run?.message}</strong></div>
-      <div><span>Run ID</span><strong>{feed.run?.id.slice(0, 8)}</strong></div>
+      <div><span>Failure queued</span><strong>{failureDetails(run?.failure).label}</strong></div>
+      <div><span>Runner state</span><strong>{run?.message}</strong></div>
+      <div><span>Run ID</span><strong>{run?.id.slice(0, 8)}</strong></div>
     </div>}
-    {feed.run?.state === "failed" && <p className="run-error">{feed.run.message}</p>}
+    {run?.state === "failed" && <p className="run-error">{run.message}</p>}
     <section className="response-pipeline" aria-label="Autonomous investigation sequence">
       <header><h2>Autonomous response</h2><p>Begins as soon as the service is under load.</p></header>
       <ol>
@@ -212,23 +214,24 @@ function HostedLiveView() {
   </main>;
   return <>
     <div className="live-toolbar">
-      <span><b>Live incident</b> / {failureDetails(challenge.failure ?? feed.run?.failure ?? challenge.title).label} / {challenge.dataset} / {challenge.concurrency} concurrent users</span>
+      <span><b>Live incident</b> / {failureDetails(challenge.failure ?? run?.failure ?? challenge.title).label} / {challenge.dataset} / {challenge.concurrency} concurrent users</span>
       {!running && startForm}
     </div>
     {notices}
-    <Investigation key={feed.run!.id} title={challenge.title} events={events} meta={meta} now={elapsed}
-      finalDiff={feed.run!.diff}
-      controls={<span role="status">{feed.run!.state === "failed" ? "Run stopped" : running ? `Live · ${clock(elapsed)}` : "Investigation finished"}</span>}
-      footer={feed.run!.execution_url && <a href={feed.run!.execution_url} target="_blank" rel="noreferrer">Execution log</a>} />
+    <Investigation key={run!.id} title={challenge.title} events={events} meta={meta} now={elapsed}
+      finalDiff={run!.diff}
+      controls={<span role="status">{run!.state === "failed" ? "Run stopped" : running ? `Live · ${clock(elapsed)}` : "Investigation finished"}</span>}
+      footer={run!.execution_url && <a href={run!.execution_url} target="_blank" rel="noreferrer">Execution log</a>} />
   </>;
 }
 
 export function App() {
   const [index, setIndex] = useState<RunIndex | null>(null);
-  const [current, setCurrent] = useState<string>(parseHash(window.location.hash).run ?? LIVE);
+  const [current, setCurrent] = useState<string>(HOSTED ? LIVE : parseHash(window.location.hash).run ?? LIVE);
   const [run, setRun] = useState<Run | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
+    if (HOSTED) return;
     loadIndex().then(setIndex).catch(() => setIndex({ featured: null, runs: [] }));
     const onHash = () => {
       if (window.location.hash !== "#main-content") setCurrent(parseHash(window.location.hash).run ?? LIVE);
@@ -250,7 +253,7 @@ export function App() {
         <a className="logo" href={formatHash({ run: LIVE })}><span aria-hidden="true" />HotPath</a>
       <nav className="demo-services" aria-label="Investigations">
         <a href={formatHash({ run: LIVE })} aria-current={current === LIVE ? "page" : undefined}><strong>Live</strong></a>
-        {!!index?.runs.length && <details className="history-menu">
+        {!HOSTED && !!index?.runs.length && <details className="history-menu">
           <summary>Past runs</summary>
           <div>{index.runs.map((r) => (
             <a key={r.id} href={formatHash({ run: r.id })} aria-current={current === r.id ? "page" : undefined}>
