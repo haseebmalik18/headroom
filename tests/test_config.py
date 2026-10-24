@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from hotpath.config import load_config, parse_duration
+from headroom.config import load_config, parse_duration
 
 CHECKOUT = Path(__file__).resolve().parents[1] / "examples" / "checkout-service"
 
@@ -21,7 +21,7 @@ def test_load_checkout_service_config():
 
 
 def test_missing_config_raises_helpful_error(tmp_path):
-    with pytest.raises(FileNotFoundError, match="hotpath.yaml"):
+    with pytest.raises(FileNotFoundError, match="headroom.yaml"):
         load_config(tmp_path)
 
 

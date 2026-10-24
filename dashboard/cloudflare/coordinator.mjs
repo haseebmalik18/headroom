@@ -92,7 +92,7 @@ export class LiveDemo {
         method: "POST", signal: AbortSignal.timeout(10_000),
         headers: {
           Authorization: `Bearer ${this.env.GITHUB_DISPATCH_TOKEN}`, "Content-Type": "application/json",
-          Accept: "application/vnd.github+json", "User-Agent": "HotPath-demo", "X-GitHub-Api-Version": "2022-11-28",
+          Accept: "application/vnd.github+json", "User-Agent": "Headroom-demo", "X-GitHub-Api-Version": "2022-11-28",
         },
         body: JSON.stringify({ ref: this.env.GITHUB_REF, inputs: {
           run_id: run.id, seed: String(run.seed), failure: run.failure,

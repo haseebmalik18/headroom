@@ -11,7 +11,7 @@ import { isLegacyCompletedRun, normalizeFailureMode, useHostedFeed, type Failure
 import { buildStory, groupStory, type Meta } from "./live/story";
 import { formatHash, parseHash } from "./replay/hash";
 
-const REPO_URL = "https://github.com/haseebmalik18/hotpath";
+const REPO_URL = "https://github.com/haseebmalik18/headroom";
 const LIVE = "live";
 const HOSTED = import.meta.env.MODE === "cloudflare";
 const TITLES: Record<string, string> = {
@@ -123,8 +123,8 @@ function LocalLiveView() {
     <p role="status">{feed.state === "error" ? "Live server is offline. Start it from the project directory." : feed.state === "waiting" ? "Connected. Waiting for an investigation to start." : "Connecting to the live server…"}</p>
     <details className="setup-details" open={feed.state === "error"}><summary>Start an investigation</summary>
     <div className="live-commands">
-      <div><span>1. Start the live server</span><code>uv run hotpath serve</code></div>
-      <div><span>2. Start an investigation in another terminal</span><code>uv run hotpath investigate examples/checkout-service</code></div>
+      <div><span>1. Start the live server</span><code>uv run headroom serve</code></div>
+      <div><span>2. Start an investigation in another terminal</span><code>uv run headroom investigate examples/checkout-service</code></div>
     </div>
     <p className="setup-note">Uses your configured Nemotron model and Nebius API key. Docker must be running. New events appear here automatically.</p></details>
   </main>;
@@ -259,7 +259,7 @@ export function App() {
     <a href="#main-content" className="skip-link">Skip to content</a>
     <header className="demo-header">
       <div className="demo-header-inner">
-        <a className="logo" href={formatHash({ run: LIVE })}><span aria-hidden="true" />HotPath</a>
+        <a className="logo" href={formatHash({ run: LIVE })}><span aria-hidden="true" />Headroom</a>
       <nav className="demo-services" aria-label="Investigations">
         <a href={formatHash({ run: LIVE })} aria-current={current === LIVE ? "page" : undefined}><strong>Live</strong></a>
         {!HOSTED && !!index?.runs.length && <details className="history-menu">

@@ -1,6 +1,6 @@
 import pytest
 
-from hotpath.telemetry.postgres import ActivitySample, parse_activity_output, summarize_activity
+from headroom.telemetry.postgres import ActivitySample, parse_activity_output, summarize_activity
 
 OUTPUT = """\
 active|1

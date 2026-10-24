@@ -6,18 +6,18 @@ from pathlib import Path
 
 import httpx
 
-from hotpath.agent.experiments import ExperimentResult, LevelObservation
-from hotpath.agent.investigator import Context, NotebookEntry
-from hotpath.agent.reasoner import NemotronReasoner, render_previous_races
-from hotpath.agent.schemas import ExperimentPlan, Hypothesis, PatchCandidate, Prediction
-from hotpath.benchmark.evaluator import evaluate
-from hotpath.benchmark.race import RaceReport
-from hotpath.benchmark.results import BenchmarkResult, ContainerUsage, LoadReport, LoadRun, TestReport
-from hotpath.benchmark.verify import build_report
-from hotpath.config import Constraints, Objective
-from hotpath.execution.backend import CandidateRun
-from hotpath.models.nemotron import NemotronClient
-from hotpath.repository.analyzer import analyze
+from headroom.agent.experiments import ExperimentResult, LevelObservation
+from headroom.agent.investigator import Context, NotebookEntry
+from headroom.agent.reasoner import NemotronReasoner, render_previous_races
+from headroom.agent.schemas import ExperimentPlan, Hypothesis, PatchCandidate, Prediction
+from headroom.benchmark.evaluator import evaluate
+from headroom.benchmark.race import RaceReport
+from headroom.benchmark.results import BenchmarkResult, ContainerUsage, LoadReport, LoadRun, TestReport
+from headroom.benchmark.verify import build_report
+from headroom.config import Constraints, Objective
+from headroom.execution.backend import CandidateRun
+from headroom.models.nemotron import NemotronClient
+from headroom.repository.analyzer import analyze
 
 CHECKOUT = Path(__file__).resolve().parents[1] / "examples" / "checkout-service"
 PLAN = {

@@ -2,7 +2,7 @@ import subprocess
 
 import pytest
 
-from hotpath.agent.store import apply_to_repository
+from headroom.agent.store import apply_to_repository
 
 DIFF = """diff --git a/app/m.py b/app/m.py
 --- a/app/m.py

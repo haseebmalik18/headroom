@@ -4,8 +4,8 @@ from urllib.error import HTTPError, URLError
 
 import pytest
 
-from hotpath.agent.state import Event, Phase
-from hotpath.demo_runner import Publisher, PublishError, run
+from headroom.agent.state import Event, Phase
+from headroom.demo_runner import Publisher, PublishError, run
 
 RUN = "11111111-1111-4111-8111-111111111111"
 
@@ -26,8 +26,8 @@ def test_publish_retry_preserves_event_sequence(monkeypatch):
         response.__exit__ = Mock(return_value=False)
         return response
 
-    monkeypatch.setattr("hotpath.demo_runner.urlopen", send)
-    monkeypatch.setattr("hotpath.demo_runner.time.sleep", lambda _: None)
+    monkeypatch.setattr("headroom.demo_runner.urlopen", send)
+    monkeypatch.setattr("headroom.demo_runner.time.sleep", lambda _: None)
     p = publisher()
     p.event(Event(phase=Phase.BASELINE, kind="phase", message="Measuring"))
     assert requests[0] == requests[1]
@@ -40,7 +40,7 @@ def test_rejected_claim_never_generates_case_or_loads_client(monkeypatch):
     p = publisher()
     monkeypatch.setattr(p, "send", Mock(side_effect=PublishError(409)))
     generate = Mock()
-    monkeypatch.setattr("hotpath.challenges.generate_challenge", generate)
+    monkeypatch.setattr("headroom.challenges.generate_challenge", generate)
     with pytest.raises(PublishError):
         run(p, 42)
     generate.assert_not_called()
@@ -48,7 +48,7 @@ def test_rejected_claim_never_generates_case_or_loads_client(monkeypatch):
 
 def test_unauthorized_callback_is_not_retried(monkeypatch):
     send = Mock(side_effect=HTTPError("https://demo.example", 401, "Unauthorized", {}, None))
-    monkeypatch.setattr("hotpath.demo_runner.urlopen", send)
+    monkeypatch.setattr("headroom.demo_runner.urlopen", send)
     with pytest.raises(PublishError):
         publisher().send("claim", seed=42)
     assert send.call_count == 1

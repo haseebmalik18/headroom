@@ -5,7 +5,7 @@ __pycache__/
 *.pyc
 .venv/
 .pytest_cache/
-.hotpath/
+.headroom/
 results/
 node_modules/
 .DS_Store

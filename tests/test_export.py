@@ -3,16 +3,16 @@ from pathlib import Path
 
 from test_investigator import FakeLab, ScriptedReasoner, bench, candidate, hypothesis
 
-from hotpath.agent.investigator import Investigator
-from hotpath.agent.store import InvestigationStore
-from hotpath.export import export_investigation
-from hotpath.models.nemotron import ModelCall
+from headroom.agent.investigator import Investigator
+from headroom.agent.store import InvestigationStore
+from headroom.export import export_investigation
+from headroom.models.nemotron import ModelCall
 
 CHECKOUT = Path(__file__).resolve().parents[1] / "examples" / "checkout-service"
 
 
 async def _record(root: Path, rounds=None) -> Path:
-    """Run a scripted investigation and save it exactly as `hotpath investigate` does."""
+    """Run a scripted investigation and save it exactly as `headroom investigate` does."""
     reasoner = ScriptedReasoner(
         hypothesis_rounds=[[hypothesis("H1", "Database write contention", 0.6),
                             hypothesis("H2", "Global lock contention", 0.35)]],

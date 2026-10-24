@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from hotpath.benchmark.results import (
+from headroom.benchmark.results import (
     BenchmarkResult,
     ContainerUsage,
     LoadReport,
@@ -8,7 +8,7 @@ from hotpath.benchmark.results import (
     SpanStats,
     TestReport,
 )
-from hotpath.config import Objective
+from headroom.config import Objective
 
 
 def _load(p99: float, concurrency: int = 500) -> LoadReport:

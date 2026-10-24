@@ -49,7 +49,7 @@ export interface Meta {
 const SCOPE = /^\[(.+?)\]\s*(.*)$/;
 
 function cleanProgress(message: string): string {
-  return message.replace(/, think [\d.]+ms.*$/, "").replace(/\s*\(hotpath-[^)]*\)/, "");
+  return message.replace(/, think [\d.]+ms.*$/, "").replace(/\s*\((?:headroom|hotpath)-[^)]*\)/, "");
 }
 
 /** Everything that has happened by `now` (ms since the first event), as story entries and ruler markers. */

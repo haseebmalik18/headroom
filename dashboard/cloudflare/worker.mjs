@@ -17,7 +17,7 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (url.pathname === "/api/status" && request.method === "GET") {
-      return json({ service: "hotpath", hosting: "cloudflare", live: { enabled: enabled(env), daily_runs: DAILY_RUNS } });
+      return json({ service: "headroom", hosting: "cloudflare", live: { enabled: enabled(env), daily_runs: DAILY_RUNS } });
     }
     if (["/api/demo", "/api/demo/start", "/api/demo/socket", "/api/demo/update"].includes(url.pathname)) {
       if (!enabled(env)) return json({ error: "Live runs are temporarily unavailable." }, 503);

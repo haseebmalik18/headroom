@@ -9,7 +9,7 @@
   "send_metrics": false,
   "vars": {
     "LIVE_ENABLED": "true",
-    "GITHUB_REPOSITORY": "haseebmalik18/hotpath",
+    "GITHUB_REPOSITORY": "haseebmalik18/headroom",
     "GITHUB_REF": "main"
   },
   "durable_objects": {

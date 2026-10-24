@@ -2,8 +2,8 @@ import json
 
 import pytest
 
-from hotpath.benchmark.results import LoadReport, parse_junit
-from hotpath.telemetry.collector import parse_docker_stats_line, parse_memory_mb, parse_percent
+from headroom.benchmark.results import LoadReport, parse_junit
+from headroom.telemetry.collector import parse_docker_stats_line, parse_memory_mb, parse_percent
 
 JUNIT_PASS = """<?xml version="1.0" encoding="utf-8"?>
 <testsuites><testsuite name="pytest" errors="0" failures="0" skipped="0" tests="2" time="0.91">
@@ -86,10 +86,10 @@ def test_parse_memory_mb(text, mb):
 
 
 def test_parse_docker_stats_line():
-    line = json.dumps({"Name": "hotpath-x-app-1", "ID": "abc", "CPUPerc": "37.44%", "MemUsage": "65.82MiB / 5.541GiB"})
+    line = json.dumps({"Name": "headroom-x-app-1", "ID": "abc", "CPUPerc": "37.44%", "MemUsage": "65.82MiB / 5.541GiB"})
 
     sample = parse_docker_stats_line(line)
 
-    assert sample.name == "hotpath-x-app-1"
+    assert sample.name == "headroom-x-app-1"
     assert sample.cpu_percent == 37.44
     assert sample.memory_mb == pytest.approx(65.82)

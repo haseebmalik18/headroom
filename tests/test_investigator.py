@@ -1,16 +1,16 @@
 from datetime import datetime, timezone
 
-from hotpath.agent.experiments import ExperimentResult
-from hotpath.agent.investigator import Investigator
-from hotpath.agent.schemas import ExperimentConclusion, ExperimentPlan, Hypothesis, PatchCandidate, Prediction
-from hotpath.agent.state import Budget, Phase
-from hotpath.benchmark.evaluator import evaluate
-from hotpath.benchmark.race import RaceReport
-from hotpath.benchmark.results import BenchmarkResult, LoadReport, LoadRun, TestReport
-from hotpath.benchmark.verify import build_report
-from hotpath.config import Constraints, Objective
-from hotpath.execution.backend import CandidateRun
-from hotpath.repository.analyzer import RepositoryMap
+from headroom.agent.experiments import ExperimentResult
+from headroom.agent.investigator import Investigator
+from headroom.agent.schemas import ExperimentConclusion, ExperimentPlan, Hypothesis, PatchCandidate, Prediction
+from headroom.agent.state import Budget, Phase
+from headroom.benchmark.evaluator import evaluate
+from headroom.benchmark.race import RaceReport
+from headroom.benchmark.results import BenchmarkResult, LoadReport, LoadRun, TestReport
+from headroom.benchmark.verify import build_report
+from headroom.config import Constraints, Objective
+from headroom.execution.backend import CandidateRun
+from headroom.repository.analyzer import RepositoryMap
 
 OBJECTIVE = Objective(endpoint="POST /inventory/reserve", metric="p99_ms", target=100)
 

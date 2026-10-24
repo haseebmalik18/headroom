@@ -1,6 +1,6 @@
 import pytest
 
-from hotpath.execution.worktrees import FileChange, PatchError, Workspace
+from headroom.execution.worktrees import FileChange, PatchError, Workspace
 
 
 @pytest.fixture
@@ -93,9 +93,9 @@ def test_create_replaces_stale_workspace(source, tmp_path):
 
 
 def test_protected_changes():
-    from hotpath.execution.backend import protected_changes
+    from headroom.execution.backend import protected_changes
 
-    changed = ["app/inventory.py", "tests/test_inventory_concurrency.py", "hotpath.yaml", "db/schema.sql"]
-    protected = ["tests/*", "load/*", "hotpath.yaml", "Dockerfile"]
+    changed = ["app/inventory.py", "tests/test_inventory_concurrency.py", "headroom.yaml", "db/schema.sql"]
+    protected = ["tests/*", "load/*", "headroom.yaml", "Dockerfile"]
 
-    assert protected_changes(changed, protected) == ["tests/test_inventory_concurrency.py", "hotpath.yaml"]
+    assert protected_changes(changed, protected) == ["tests/test_inventory_concurrency.py", "headroom.yaml"]

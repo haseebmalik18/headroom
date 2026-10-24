@@ -2,7 +2,7 @@ import statistics as stdlib
 
 import pytest
 
-from hotpath.benchmark.statistics import bootstrap_ci, compare, describe
+from headroom.benchmark.statistics import bootstrap_ci, compare, describe
 
 
 def test_describe_basic_statistics():

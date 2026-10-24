@@ -42,10 +42,10 @@ jobs:
         env:
           NEBIUS_API_KEY: ${{ secrets.NEBIUS_API_KEY }}
           NEMOTRON_MODEL: nvidia/Nemotron-3-Ultra-550b-a55b
-        run: uv run python -m hotpath.demo_runner
+        run: uv run python -m headroom.demo_runner
       - name: Report runner failure
         if: failure() || cancelled()
-        run: python3 -m hotpath.demo_runner --failed
+        run: python3 -m headroom.demo_runner --failed
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -54,6 +54,6 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
           path: |
-            .hotpath/challenges/
-            .hotpath/investigations/
-            .hotpath/runs/
+            .headroom/challenges/
+            .headroom/investigations/
+            .headroom/runs/

@@ -2,9 +2,9 @@ from datetime import datetime, timezone
 
 import pytest
 
-from hotpath.benchmark.results import BenchmarkResult, ContainerUsage, LoadReport, LoadRun, TestReport
-from hotpath.benchmark.verify import build_report, summarize
-from hotpath.config import Objective
+from headroom.benchmark.results import BenchmarkResult, ContainerUsage, LoadReport, LoadRun, TestReport
+from headroom.benchmark.verify import build_report, summarize
+from headroom.config import Objective
 
 OBJECTIVE = Objective(endpoint="POST /inventory/reserve", metric="p99_ms", target=100)
 

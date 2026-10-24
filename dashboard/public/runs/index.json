@@ -12,7 +12,7 @@
       "baseline_ms": 74.31,
       "final_ms": 4.62,
       "recorded_at": "2026-10-24T03:30:50.430371+00:00",
-      "actions_url": "https://github.com/haseebmalik18/hotpath/actions/runs/40058589734"
+      "actions_url": "https://github.com/haseebmalik18/headroom/actions/runs/40058589734"
     },
     {
       "id": "20261024-033050-checkout-service",
@@ -25,7 +25,7 @@
       "baseline_ms": 767.91,
       "final_ms": 9.09,
       "recorded_at": "2026-10-24T03:30:50.149779+00:00",
-      "actions_url": "https://github.com/haseebmalik18/hotpath/actions/runs/40058589734"
+      "actions_url": "https://github.com/haseebmalik18/headroom/actions/runs/40058589734"
     },
     {
       "id": "20261023-221348-auth-service",
@@ -38,7 +38,7 @@
       "baseline_ms": 2534.06,
       "final_ms": 5.23,
       "recorded_at": "2026-10-23T22:13:48.917062+00:00",
-      "actions_url": "https://github.com/haseebmalik18/hotpath/actions/runs/40032208236"
+      "actions_url": "https://github.com/haseebmalik18/headroom/actions/runs/40032208236"
     }
   ]
 }

@@ -1,6 +1,6 @@
 # Runs the evaluation scenarios, one runner per scenario so their benchmarks never share CPU.
 #   reference: hand-written fixes only (no model) -- checks each scenario is calibrated on this hardware
-#   agent:     full HotPath investigations with Nemotron, scored against the ground truth
+#   agent:     full Headroom investigations with Nemotron, scored against the ground truth
 name: Eval
 
 on:
@@ -57,9 +57,9 @@ jobs:
           MODE: ${{ inputs.mode }}
         run: |
           if [ "$MODE" = reference ]; then
-            uv run hotpath eval --reference --scenario "$SCENARIO"
+            uv run headroom eval --reference --scenario "$SCENARIO"
           else
-            uv run hotpath eval --scenario "$SCENARIO"
+            uv run headroom eval --scenario "$SCENARIO"
           fi
 
       - uses: actions/upload-artifact@v4
@@ -70,5 +70,5 @@ jobs:
           if-no-files-found: warn
           path: |
             evals/results/
-            .hotpath/investigations/
-            .hotpath/runs/
+            .headroom/investigations/
+            .headroom/runs/

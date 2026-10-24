@@ -4,7 +4,7 @@ import time
 
 import httpx
 
-from hotpath.serve import follow, make_server
+from headroom.serve import follow, make_server
 
 
 def test_follow_yields_lines_appended_later_and_stops_when_done(tmp_path):

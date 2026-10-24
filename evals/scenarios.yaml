@@ -1,4 +1,4 @@
-# HotPath evaluation scenarios.
+# Headroom evaluation scenarios.
 #
 # Ground truth lives here, outside every scenario's repository, so the model never sees it.
 # `root_cause_keywords` is a coarse, transparent check on the supported hypothesis; every

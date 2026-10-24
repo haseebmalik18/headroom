@@ -8,7 +8,7 @@ test("status reports hosting separately from live execution", async () => {
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("Cache-Control"), "no-store");
   assert.deepEqual(await response.json(), {
-    service: "hotpath", hosting: "cloudflare", live: { enabled: false, daily_runs: 3 },
+    service: "headroom", hosting: "cloudflare", live: { enabled: false, daily_runs: 3 },
   });
 });
 

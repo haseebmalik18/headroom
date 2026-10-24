@@ -1,4 +1,4 @@
-// Shapes written by `hotpath export` (hotpath/export.py). Event payloads mirror HotPath's pydantic models.
+// Shapes written by `headroom export` (headroom/export.py). Event payloads mirror Headroom's pydantic models.
 
 export interface Objective {
   endpoint: string;

@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from hotpath.repository.analyzer import analyze
+from headroom.repository.analyzer import analyze
 
 CHECKOUT = Path(__file__).resolve().parents[1] / "examples" / "checkout-service"
 
@@ -26,10 +26,10 @@ def test_map_lists_tests_dependencies_and_entrypoints():
     assert repo_map.objective.endpoint == "POST /inventory/reserve"
 
 
-def test_map_excludes_hotpath_artifacts(tmp_path):
+def test_map_excludes_headroom_artifacts(tmp_path):
     repo_map = analyze(CHECKOUT)
 
-    assert not any(p.startswith(("results/", ".hotpath/")) for p in repo_map.tree)
+    assert not any(p.startswith(("results/", ".headroom/")) for p in repo_map.tree)
 
 
 def test_render_is_compact_and_contains_source():

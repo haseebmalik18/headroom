@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 
-from hotpath.benchmark.evaluator import evaluate
-from hotpath.benchmark.results import (
+from headroom.benchmark.evaluator import evaluate
+from headroom.benchmark.results import (
     BenchmarkResult,
     ContainerUsage,
     LoadReport,
@@ -9,7 +9,7 @@ from hotpath.benchmark.results import (
     TestFailure,
     TestReport,
 )
-from hotpath.config import Constraints, Objective
+from headroom.config import Constraints, Objective
 
 OBJECTIVE = Objective(endpoint="POST /inventory/reserve", metric="p99_ms", target=100)
 CONSTRAINTS = Constraints(max_error_rate=0.001, max_memory_mb=1024)

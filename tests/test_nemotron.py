@@ -4,7 +4,7 @@ import httpx
 import pytest
 from pydantic import BaseModel
 
-from hotpath.models.nemotron import ModelOutputError, NemotronClient, extract_json
+from headroom.models.nemotron import ModelOutputError, NemotronClient, extract_json
 
 
 class Verdict(BaseModel):

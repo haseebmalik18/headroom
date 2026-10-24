@@ -3,7 +3,7 @@
 Public dashboard: **https://hotpath-demo.haseebulhaq55.workers.dev**.
 Hosting was first deployed on October 24, 2026.
 
-HotPath uses one Cloudflare Worker with Static Assets and a SQLite-backed Durable
+Headroom uses one Cloudflare Worker with Static Assets and a SQLite-backed Durable
 Object. The dashboard and saved investigations come from the assets service. The
 Durable Object reserves one shared live run, dispatches the fixed GitHub Actions
 workflow, stores its current event buffer, and fans updates out through hibernating
@@ -45,7 +45,7 @@ SQLite-backed Durable Objects are also available on Free: 100,000 requests/day,
 13,000 GB-seconds/day of active duration, 5 million rows read/day, 100,000 rows
 written/day, and 5 GB total storage. [Durable Objects pricing](https://developers.cloudflare.com/durable-objects/platform/pricing/)
 
-HotPath's Docker benchmark lab must run on a separate Docker-capable runner.
+Headroom's Docker benchmark lab must run on a separate Docker-capable runner.
 The API can coordinate it; 10 ms of Worker CPU cannot execute the investigation.
 Nebius inference consumes model credits independently of hosting.
 
@@ -67,7 +67,7 @@ npm --prefix dashboard run preview:cloudflare
 
 Wrangler is pinned to a Node 20 compatible release in the lockfile. The separate
 `dist-cloudflare/` build serves at `/`; it does not replace `dist/`, which serves
-the existing local dashboard and GitHub Pages at `/hotpath/`.
+the existing local dashboard and GitHub Pages at `/headroom/`.
 
 `check:cloudflare` performs a dry run, not a deployment. `preview:cloudflare`
 runs Cloudflare's local runtime. Visit the address it prints, then check the
@@ -85,7 +85,7 @@ After approving account access and deployment:
 
 ```bash
 # From the repository root, keep login state in the ignored workspace directory.
-export XDG_CONFIG_HOME="$PWD/.hotpath/cloudflare-config"
+export XDG_CONFIG_HOME="$PWD/.headroom/cloudflare-config"
 cd dashboard
 npx wrangler login
 npx wrangler whoami

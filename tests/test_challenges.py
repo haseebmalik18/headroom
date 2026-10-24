@@ -3,9 +3,9 @@ from pathlib import Path
 
 import pytest
 
-from hotpath.challenges import generate_challenge, fingerprint, TEMPLATES
-from hotpath.config import load_config
-from hotpath.repository.analyzer import analyze
+from headroom.challenges import generate_challenge, fingerprint, TEMPLATES
+from headroom.config import load_config
+from headroom.repository.analyzer import analyze
 
 
 def test_seed_reproduces_exact_case_without_overwriting(tmp_path):
@@ -50,7 +50,7 @@ def test_allowlisted_failure_mode_selects_family_without_entering_repo(family, t
     case = generate_challenge(42, family=family, root=tmp_path)
     assert case.public["failure"] == family
     assert json.loads((case.repo.parent / "manifest.json").read_text())["family"] == family
-    assert "failure:" not in (case.repo / "hotpath.yaml").read_text()
+    assert "failure:" not in (case.repo / "headroom.yaml").read_text()
 
 
 @pytest.mark.parametrize("seed", [-1, 2**32, True, "7", 1.2])

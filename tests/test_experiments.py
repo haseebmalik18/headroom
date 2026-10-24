@@ -1,9 +1,9 @@
 from datetime import datetime, timezone
 
-from hotpath.agent.experiments import ExperimentResult, normalize_levels, observations
-from hotpath.agent.schemas import ExperimentPlan, Prediction
-from hotpath.benchmark.results import BenchmarkResult, ContainerUsage, DbActivity, LoadReport, LoadRun, SpanStats
-from hotpath.config import Objective
+from headroom.agent.experiments import ExperimentResult, normalize_levels, observations
+from headroom.agent.schemas import ExperimentPlan, Prediction
+from headroom.benchmark.results import BenchmarkResult, ContainerUsage, DbActivity, LoadReport, LoadRun, SpanStats
+from headroom.config import Objective
 
 
 def _plan(measurements) -> ExperimentPlan:

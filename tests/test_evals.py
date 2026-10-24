@@ -1,13 +1,13 @@
 from pathlib import Path
 
-from hotpath.agent.investigator import Context, NotebookEntry, Outcome
-from hotpath.agent.schemas import ExperimentConclusion, ExperimentPlan, Hypothesis, Prediction
-from hotpath.agent.state import Phase
-from hotpath.config import load_config
-from hotpath.evals import REFERENCE_DIR, load_scenarios, score_outcome
+from headroom.agent.investigator import Context, NotebookEntry, Outcome
+from headroom.agent.schemas import ExperimentConclusion, ExperimentPlan, Hypothesis, Prediction
+from headroom.agent.state import Phase
+from headroom.config import load_config
+from headroom.evals import REFERENCE_DIR, load_scenarios, score_outcome
 from test_investigator import bench
-from hotpath.repository.analyzer import RepositoryMap
-from hotpath.config import Objective
+from headroom.repository.analyzer import RepositoryMap
+from headroom.config import Objective
 
 ROOT = Path(__file__).resolve().parents[1]
 
