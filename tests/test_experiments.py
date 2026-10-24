@@ -67,3 +67,11 @@ def test_render_includes_numbers_for_requested_instruments():
 
 def test_normalize_levels_clamps_and_dedupes():
     assert normalize_levels([500, 0, 25, 500, 5000]) == [1, 25, 500, 1000]
+
+
+def test_render_gives_counts_so_rates_can_be_worked_out():
+    plan = _plan(["app_spans"])
+    text = ExperimentResult(plan=plan, levels=observations(_result(), plan)).render()
+
+    assert "500 | 1925.0 | 3850.0 | 250.0 | 0.00% | 100 in 20s" in text
+    assert "inventory.lock_wait 3600.0/3830.0 (9 calls)" in text

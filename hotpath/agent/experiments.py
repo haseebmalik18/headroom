@@ -21,6 +21,7 @@ MAX_CONCURRENCY = 1000
 class SpanSummary(BaseModel):
     p50_ms: float
     p99_ms: float
+    count: int | None = None  # how many times the span ran in the measured window
 
 
 class LevelObservation(BaseModel):
@@ -30,6 +31,8 @@ class LevelObservation(BaseModel):
     p99_ms: float
     throughput_rps: float
     error_rate: float
+    requests: int | None = None  # measured requests, and the window they ran in
+    duration_s: float | None = None
     container_cpu_percent: dict[str, float] | None = None
     container_memory_mb: dict[str, float] | None = None
     spans: dict[str, SpanSummary] | None = None
@@ -45,10 +48,11 @@ class ExperimentResult(BaseModel):
         """Compact, model-readable evidence."""
         if self.error:
             return f"Experiment failed: {self.error}"
-        lines = ["concurrency | p50 ms | p99 ms | rps | errors"]
+        lines = ["concurrency | p50 ms | p99 ms | rps | errors | requests measured"]
         for lv in self.levels:
+            measured = f"{lv.requests} in {lv.duration_s:g}s" if lv.requests is not None and lv.duration_s else "-"
             lines.append(f"{lv.concurrency} | {lv.p50_ms:.1f} | {lv.p99_ms:.1f} | {lv.throughput_rps:.1f} | "
-                         f"{lv.error_rate:.2%}")
+                         f"{lv.error_rate:.2%} | {measured}")
         for lv in self.levels:
             details = []
             if lv.container_cpu_percent is not None:
@@ -65,8 +69,9 @@ class ExperimentResult(BaseModel):
                 )
             if lv.spans is not None:
                 top = sorted(lv.spans.items(), key=lambda kv: -kv[1].p99_ms)
-                details.append("app spans (p50/p99 ms): " + "; ".join(
-                    f"{name} {s.p50_ms:.1f}/{s.p99_ms:.1f}" for name, s in top
+                details.append("app spans (p50/p99 ms, calls in the window): " + "; ".join(
+                    f"{name} {s.p50_ms:.1f}/{s.p99_ms:.1f}" + (f" ({s.count} calls)" if s.count is not None else "")
+                    for name, s in top
                 ))
             if details:
                 lines.append(f"\nAt {lv.concurrency} concurrent:")
@@ -82,13 +87,14 @@ def observations(result: BenchmarkResult, plan: ExperimentPlan) -> list[LevelObs
         obs = LevelObservation(
             concurrency=load.concurrency, p50_ms=load.p50_ms, p95_ms=load.p95_ms, p99_ms=load.p99_ms,
             throughput_rps=load.throughput_rps, error_rate=load.error_rate,
+            requests=load.requests, duration_s=load.duration_s,
         )
         if "container_resources" in wanted and run.containers:
             obs.container_cpu_percent = {k: v.cpu_percent_avg for k, v in run.containers.items()}
             obs.container_memory_mb = {k: v.memory_mb_max for k, v in run.containers.items()}
         if "app_spans" in wanted:
             obs.spans = {
-                name: SpanSummary(p50_ms=s.p50_ms, p99_ms=s.p99_ms)
+                name: SpanSummary(p50_ms=s.p50_ms, p99_ms=s.p99_ms, count=s.count)
                 for name, s in run.spans.items() if not name.startswith("http GET /health")
             }
         if "db_activity" in wanted:
