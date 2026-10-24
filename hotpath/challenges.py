@@ -20,12 +20,13 @@ from hotpath.config import load_config
 PROJECT = Path(__file__).resolve().parents[1]
 VERSION = 1
 MAX_SEED = 2**32 - 1
-FAMILIES = ("checkout", "catalog", "auth", "dashboard")
+FAMILIES = ("checkout", "catalog", "auth", "dashboard", "pricing")
 TEMPLATES = {
     "checkout": "examples/checkout-service",
     "catalog": "evals/scenarios/catalog-service",
     "auth": "evals/scenarios/auth-service",
     "dashboard": "evals/scenarios/dashboard-service",
+    "pricing": "evals/scenarios/pricing-service",
 }
 
 
@@ -100,6 +101,14 @@ def generate_challenge(seed: int | None = None, *, family: str | None = None,
         think_ms = rng.choice((400, 500, 650))
         title = "Authentication under load"
         dataset = "100 accounts · 8 logins/s"
+    elif family == "pricing":
+        orders = rng.choice((500_000, 600_000, 700_000))
+        concurrency = rng.choice((180, 200, 220))
+        think_ms = rng.choice((150, 200, 250))
+        _replace(repo / "db/schema.sql", "generate_series(1, 600000)", f"generate_series(1, {orders})")
+        _replace(repo / "db/schema.sql", "setseed(0.31)", f"setseed({rng.uniform(-1, 1):.8f})")
+        title = "Pricing during a sale"
+        dataset = f"24 products · {orders:,} recent order lines"
     else:
         concurrency = rng.choice((5, 6, 8))
         think_ms = rng.choice((400, 500, 650))

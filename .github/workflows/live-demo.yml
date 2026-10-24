@@ -11,7 +11,7 @@ on:
         description: Seed for a fresh benchmark case
         required: true
       failure:
-        description: Allowlisted failure fixture (checkout, catalog, auth, or dashboard)
+        description: Allowlisted failure fixture (checkout, catalog, auth, dashboard, or pricing)
         required: true
 
 permissions:

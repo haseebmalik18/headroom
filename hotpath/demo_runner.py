@@ -106,7 +106,7 @@ def main() -> int:
     if not re.fullmatch(r"\d{1,10}", seed_text) or int(seed_text) > 2**32 - 1:
         raise ValueError("Invalid challenge seed")
     failure = os.environ.get("DEMO_FAILURE", "random")
-    if failure not in {"random", "checkout", "catalog", "auth", "dashboard"}:
+    if failure not in {"random", "checkout", "catalog", "auth", "dashboard", "pricing"}:
         raise ValueError("Invalid failure mode")
     try:
         run(publisher, int(seed_text), failure)

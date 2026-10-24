@@ -16,7 +16,8 @@ def test_manifest_scenarios_have_repos_and_reference_patches(monkeypatch):
     monkeypatch.chdir(ROOT)
     scenarios = load_scenarios()
 
-    assert [s.name for s in scenarios] == ["lock-contention", "n-plus-one", "blocking-event-loop", "sequential-queries"]
+    assert [s.name for s in scenarios] == ["lock-contention", "n-plus-one", "blocking-event-loop", "sequential-queries",
+                                          "cache-stampede"]
     for s in scenarios:
         service = load_config(s.repo).service
         for fix in s.reference_fixes:
