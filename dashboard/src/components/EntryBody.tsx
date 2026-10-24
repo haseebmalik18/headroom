@@ -75,7 +75,7 @@ export function EntryBody({ entry, story, now, endpoint, open }: { entry: Entry;
       return (
         <>
           <p className={`line verdict v-${entry.status === "rejected" ? "disproved" : entry.status === "winner" ? "supported" : "valid"}`}>
-            {entry.status === "rejected" && <><b>Rejected:</b> <code>{entry.name}</code> failed the test “{entry.reason}”{entry.p99 !== null && <>, so its {formatMs(entry.p99)} does not count</>}.</>}
+            {entry.status === "rejected" && <><b>Rejected:</b> <code>{entry.name}</code> because {entry.reason}{entry.p99 !== null && <>. Its {formatMs(entry.p99)} result does not count</>}.</>}
             {entry.status === "winner" && <><b>Fastest valid fix:</b> <code>{entry.name}</code> passed {entry.tests} tests at {formatMs(entry.p99 ?? 0)}.</>}
             {entry.status === "valid" && <><code>{entry.name}</code> passed {entry.tests} tests at {formatMs(entry.p99 ?? 0)}.</>}
           </p>

@@ -146,6 +146,12 @@ td code { font-size: 13px; overflow-wrap: anywhere; }
 .c-winner { color: var(--green); }
 .c-rejected { color: var(--red); }
 .c-running { color: var(--amber); }
+.safety-gate { display: grid; grid-template-columns: 160px minmax(0, 1fr); gap: 22px; margin-top: 14px; padding: 15px 16px; border-block: 1px solid var(--border); box-shadow: inset 2px 0 var(--red); background: #151211; }
+.safety-gate > div { display: flex; flex-direction: column; gap: 4px; }
+.safety-gate span { color: var(--red); font: 10px/1.4 var(--mono); letter-spacing: .07em; text-transform: uppercase; }
+.safety-gate strong { font-size: 14px; font-weight: 560; }
+.safety-gate p { margin: 0; color: var(--fg-2); font-size: 14px; line-height: 1.65; }
+.safety-gate code { color: var(--fg); font-size: 13px; }
 .patch-heading { display: flex; justify-content: space-between; gap: 20px; padding: 15px 0; border-top: 1px solid var(--border); font-size: 13px; }
 .patch-heading code { overflow-wrap: anywhere; }
 .patch-heading span { color: var(--fg-3); flex-shrink: 0; }
@@ -276,6 +282,7 @@ td code { font-size: 13px; overflow-wrap: anywhere; }
   .run-config, .run-plan { padding: 18px; }
   .incident-controls { grid-template-columns: minmax(0, 1fr); }
   .incident-submit { grid-column: auto; align-items: flex-start; flex-direction: column; }
+  .safety-gate { grid-template-columns: 1fr; gap: 9px; }
   .dispatch-readout > div { grid-template-columns: 100px minmax(0, 1fr); }
   .live-toolbar .incident-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; width: 100%; }
   .live-toolbar .incident-submit { display: block; }

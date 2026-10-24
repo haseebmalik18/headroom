@@ -1,5 +1,5 @@
 import type { Candidate, Hypothesis, RunEvent, Verification } from "../data/types";
-import { firstSentence, humanizeTest, shortTitle } from "./text";
+import { explainTestFailure, firstSentence, shortTitle } from "./text";
 
 /** One thing that happened, told as a sentence on the page. `end` is null while it is still happening. */
 export type Entry =
@@ -30,6 +30,13 @@ export interface Story {
   after: number | null;
   tokens: number;
   calls: number;
+  safetyRejection: {
+    name: string;
+    p99: number;
+    reason: string;
+    winner: string | null;
+    winnerP99: number | null;
+  } | null;
 }
 
 export interface Meta {
@@ -48,7 +55,10 @@ function cleanProgress(message: string): string {
 /** Everything that has happened by `now` (ms since the first event), as story entries and ruler markers. */
 export function buildStory(events: RunEvent[], now: number, meta: Meta): Story {
   const t0 = events.length ? Date.parse(events[0].at) : 0;
-  const story: Story = { entries: [], current: null, markers: [], target: meta.target, before: null, after: null, tokens: 0, calls: 0 };
+  const story: Story = {
+    entries: [], current: null, markers: [], target: meta.target, before: null, after: null,
+    tokens: 0, calls: 0, safetyRejection: null,
+  };
   const titles = new Map<string, string>();
   const fixes = new Map<string, Extract<Entry, { kind: "fix" }>>();
   let phase = "";
@@ -183,10 +193,23 @@ export function buildStory(events: RunEvent[], now: number, meta: Meta): Story {
           Object.assign(fix, {
             end: t, status: c.status, p99: c.p99_ms, tests: c.tests_total ? `${c.tests_passed} of ${c.tests_total}` : null,
             reason: c.status === "rejected"
-              ? (c.failing_tests[0] ? humanizeTest(c.failing_tests[0]) : (c.reasons[0] ?? "").split("\n")[0])
+              ? (c.failing_tests[0] ? explainTestFailure(c.failing_tests[0]) : (c.reasons[0] ?? "").split("\n")[0])
               : null,
           });
           if (c.p99_ms !== null) story.markers.push({ kind: c.status, label: c.name, value: c.p99_ms });
+        }
+        {
+          const rejected = fixes.get(data.evaluation?.fastest_rejected);
+          const selected = winner ? fixes.get(winner) : null;
+          if (rejected?.status === "rejected" && rejected.p99 !== null && rejected.reason) {
+            story.safetyRejection = {
+              name: rejected.name,
+              p99: rejected.p99,
+              reason: rejected.reason,
+              winner: selected?.name ?? null,
+              winnerP99: selected?.p99 ?? null,
+            };
+          }
         }
         break;
 

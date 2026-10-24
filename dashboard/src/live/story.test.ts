@@ -40,9 +40,9 @@ const FINISHED: RunEvent[] = [
   ev(158, "evaluate_candidates", "phase", "Racing 2 candidates"),
   ev(160, "evaluate_candidates", "progress", "[select-for-update] running tests"),
   ev(300, "evaluate_candidates", "progress", "[optimistic-retry] running tests"),
-  ev(500, "evaluate_candidates", "race", "Winner", { evaluation: { winner: "select-for-update", candidates: [
+  ev(500, "evaluate_candidates", "race", "Winner", { evaluation: { winner: "select-for-update", fastest_rejected: "optimistic-retry", candidates: [
     { name: "select-for-update", status: "winner", p99_ms: 8.4, tests_passed: 17, tests_total: 17, reasons: [], failing_tests: [] },
-    { name: "optimistic-retry", status: "rejected", p99_ms: 6.1, tests_passed: 16, tests_total: 17, reasons: ["tests failed"], failing_tests: ["tests.test_inventory::test_reserve_decrements_stock"] },
+    { name: "optimistic-retry", status: "rejected", p99_ms: 6.1, tests_passed: 16, tests_total: 17, reasons: ["tests failed"], failing_tests: ["tests.test_inventory_concurrency::test_concurrent_reservations_never_oversell[0]"] },
   ] } }),
   ev(501, "verify_winner", "phase", "Verifying select-for-update"),
   ev(900, "verify_winner", "verification", "SLO recovered", { report: { slo_recovered: true, objective: { endpoint: "POST /inventory/reserve", metric: "p99_ms", target: 100 },
@@ -98,8 +98,15 @@ describe("buildStory when finished", () => {
     const fixes = story.entries.filter((e) => e.kind === "fix");
     expect(fixes.map((f) => f.kind === "fix" && [f.name, f.status, f.p99, f.reason])).toEqual([
       ["select-for-update", "winner", 8.4, null],
-      ["optimistic-retry", "rejected", 6.1, "reserve decrements stock"],
+      ["optimistic-retry", "rejected", 6.1, "it oversold inventory under concurrent checkout"],
     ]);
+    expect(story.safetyRejection).toEqual({
+      name: "optimistic-retry",
+      p99: 6.1,
+      reason: "it oversold inventory under concurrent checkout",
+      winner: "select-for-update",
+      winnerP99: 8.4,
+    });
   });
 
   it("drops every measured fix and the verified result onto the ruler", () => {

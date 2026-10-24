@@ -34,6 +34,7 @@ function Investigation({ title, events, meta, now, controls, footer, finalDiff =
   const report = verification?.kind === "verify" ? verification.report : null;
   const rootCause = story.entries.find((e) => e.kind === "verdict" && e.rootCause);
   const fixes = story.entries.filter((e) => e.kind === "fix");
+  const safetyRejection = story.safetyRejection;
   const reduction = story.before && story.after !== null ? (1 - story.after / story.before) * 100 : null;
   const patch = done?.verified ? finalDiff ?? done.diff : null;
 
@@ -53,6 +54,11 @@ function Investigation({ title, events, meta, now, controls, footer, finalDiff =
 
           {tab === "investigation" ? <>
             <Steps groups={groups} story={story} now={now} endpoint={meta.endpoint} />
+            {safetyRejection && <section className="safety-gate" aria-label="Correctness gate">
+              <div><span>Correctness gate</span><strong>Fastest fix rejected</strong></div>
+              <p><code>{safetyRejection.name}</code> reached {formatMs(safetyRejection.p99)}, but {safetyRejection.reason}.
+                {safetyRejection.winner && <> <code>{safetyRejection.winner}</code>{safetyRejection.winnerP99 !== null && <> at {formatMs(safetyRejection.winnerP99)}</>} passed correctness and remained eligible.</>}</p>
+            </section>}
             {fixes.length > 0 && <details className="candidate-details">
               <summary>Compare {fixes.length} fixes{fixes.some((fix) => fix.status === "rejected") && <span>{fixes.filter((fix) => fix.status === "rejected").length} rejected</span>}</summary>
               <div className="table-scroll"><table>
