@@ -54,6 +54,9 @@ Predictions:
 Task: compare each prediction with what was measured and decide whether the hypothesis is supported, disproved, \
 or the experiment was inconclusive. Put the decisive measured facts, with numbers, in key_observations. \
 Use high confidence only when the measurements clearly discriminate.
+A measurement that falls between the two predicted outcomes does not refute the hypothesis: decide which prediction it \
+is closer to (compare latencies by ratio, not difference), or call the result inconclusive. Disprove a hypothesis \
+only when the measurements match what you predicted if it were false.
 The experiment measured the unmodified code; nothing was changed. If a prediction describes the service after a fix, \
 it cannot be tested this way: judge the hypothesis from what the measurements reveal about the current code instead, \
 and never describe a change as having been made.
