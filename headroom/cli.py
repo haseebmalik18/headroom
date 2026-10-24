@@ -246,12 +246,19 @@ def print_event(event) -> None:
             tokens = data["prompt_tokens"] + data["completion_tokens"]
             console.print(f"  [dim]Nemotron {data['task']}: {data['latency_s']:.1f}s, {tokens:,} tokens[/dim]")
     elif kind == "verification":
+        from headroom.config import Objective
+
         r = data["report"]
+        show = Objective.model_validate(r["objective"]).show
         cand, base = r["candidate"]["metric"], (r["baseline"] or {}).get("metric")
         if base:
-            console.print(f"  baseline median {base['median']:.0f}ms (95% CI {base['ci_low']:.0f}–{base['ci_high']:.0f})")
-        console.print(f"  patched  median {cand['median']:.0f}ms (95% CI {cand['ci_low']:.0f}–{cand['ci_high']:.0f}) "
+            console.print(f"  baseline median {show(base['median'])} (95% CI {show(base['ci_low'])}–{show(base['ci_high'])})")
+        console.print(f"  patched  median {show(cand['median'])} (95% CI {show(cand['ci_low'])}–{show(cand['ci_high'])}) "
                       f"over {r['candidate']['runs']} runs")
+        for goal in r.get("goals", [])[1:]:
+            o = Objective.model_validate(goal["objective"])
+            console.print(f"  {o.endpoint}: median {o.show(goal['candidate']['median'])}, "
+                          f"{'meets' if goal['met'] else 'misses'} {o.text()}")
         style = "bold green" if r["slo_recovered"] else "bold red"
         console.print(f"  [{style}]{event.message}[/{style}]")
     else:
