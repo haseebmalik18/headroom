@@ -83,3 +83,27 @@ def test_requires_api_key(monkeypatch, tmp_path):
 
     with pytest.raises(RuntimeError, match="NEBIUS_API_KEY"):
         NemotronClient()
+
+
+async def test_reports_each_call_as_it_starts_and_ends():
+    seen, calls = [], []
+    client = _client([_reply('{"verdict": "supported", "confidence": 0.9}', 120, 30)], seen)
+    client.on_call = calls.append
+
+    await client.complete_json(task="conclude", system="s", user="u", schema=Verdict)
+
+    assert [c["state"] for c in calls] == ["start", "end"]
+    assert calls[0] == {"task": "conclude", "state": "start", "model": "nvidia/nemotron-test"}
+    assert calls[1]["prompt_tokens"] == 120 and calls[1]["completion_tokens"] == 30
+    assert calls[1]["latency_s"] >= 0
+
+
+async def test_reports_a_failed_call():
+    calls = []
+    client = _client([_reply("not json"), _reply("still not json")], [])
+    client.on_call = calls.append
+
+    with pytest.raises(ModelOutputError):
+        await client.complete_json(task="conclude", system="s", user="u", schema=Verdict)
+
+    assert [c["state"] for c in calls] == ["start", "failed"]

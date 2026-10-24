@@ -9,6 +9,7 @@ import json
 import os
 import re
 import time
+from collections.abc import Callable
 from typing import TypeVar
 
 import httpx
@@ -80,6 +81,8 @@ class NemotronClient:
         self.timeout = timeout
         self.transport = transport
         self.calls: list[ModelCall] = []
+        # Told when each call starts and ends, so a live view can show the model working.
+        self.on_call: Callable[[dict], None] = lambda _: None
 
     def _http(self) -> httpx.AsyncClient:
         return httpx.AsyncClient(
@@ -115,6 +118,7 @@ class NemotronClient:
         }
         started = time.monotonic()
         prompt_tokens = completion_tokens = 0
+        self.on_call({"task": task, "state": "start", "model": self.model})
 
         async with self._http() as http:
             for attempt in range(1, retries + 2):
@@ -145,10 +149,14 @@ class NemotronClient:
                     ]
                     continue
 
-                self.calls.append(ModelCall(
+                call = ModelCall(
                     task=task, model=self.model, latency_s=round(time.monotonic() - started, 2),
                     prompt_tokens=prompt_tokens, completion_tokens=completion_tokens, attempts=attempt,
-                ))
+                )
+                self.calls.append(call)
+                self.on_call({"state": "end", **call.model_dump()})
                 return parsed
 
+        self.on_call({"task": task, "state": "failed", "model": self.model,
+                      "latency_s": round(time.monotonic() - started, 2)})
         raise ModelOutputError(f"{task}: no schema-valid output after {retries + 1} attempts: {error}")
