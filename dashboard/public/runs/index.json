@@ -1,0 +1,44 @@
+{
+  "featured": "20261023-221348-auth-service",
+  "runs": [
+    {
+      "id": "20261023-221348-auth-service",
+      "title": "blocking-event-loop",
+      "scenario": "blocking-event-loop",
+      "service": "auth-service",
+      "endpoint": "GET /me",
+      "phase": "awaiting_approval",
+      "winner": "thread_pool_offload",
+      "baseline_ms": 2534.06,
+      "final_ms": 5.23,
+      "recorded_at": "2026-10-23T22:13:48.917062+00:00",
+      "actions_url": "https://github.com/haseebmalik18/hotpath/actions/runs/40032208236"
+    },
+    {
+      "id": "20261021-202911-catalog-service",
+      "title": "n-plus-one",
+      "scenario": "n-plus-one",
+      "service": "catalog-service",
+      "endpoint": "GET /catalog/categories/{category_id}/products",
+      "phase": "awaiting_approval",
+      "winner": "batch_queries_with_in",
+      "baseline_ms": 127.38,
+      "final_ms": 6.71,
+      "recorded_at": "2026-10-21T20:29:11.498755+00:00",
+      "actions_url": "https://github.com/haseebmalik18/hotpath/actions/runs/39670669608"
+    },
+    {
+      "id": "20261021-202911-checkout-service",
+      "title": "lock-contention",
+      "scenario": "lock-contention",
+      "service": "checkout-service",
+      "endpoint": "POST /inventory/reserve",
+      "phase": "awaiting_approval",
+      "winner": "atomic-update-reservation",
+      "baseline_ms": 831.22,
+      "final_ms": 8.68,
+      "recorded_at": "2026-10-21T20:29:11.427957+00:00",
+      "actions_url": "https://github.com/haseebmalik18/hotpath/actions/runs/39670669608"
+    }
+  ]
+}
