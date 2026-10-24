@@ -66,8 +66,9 @@ For frontend development, run `npm --prefix dashboard run dev` alongside
 The public dashboard uses Cloudflare as a small coordinator and a GitHub-hosted
 runner for the Docker work. A visitor can start one of the randomized benchmark
 cases directly in the browser and watch the same evidence arrive over a live
-connection. The runner accepts only a generated run ID and numeric seed; the
-repository, model, workload, and commands are fixed by the workflow.
+connection. A visitor can choose only an allowlisted failure fixture; the hidden
+seed, repository, model, workload, and commands are fixed by the coordinator and
+workflow. The fixture choice is never included in the investigator's repository.
 
 ## Repository
 

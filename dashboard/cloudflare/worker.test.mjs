@@ -67,20 +67,26 @@ test("a reserved run is claimed once and keeps an ordered live event log", async
   globalThis.fetch = async (request, options) => { dispatches.push([request, JSON.parse(options.body)]); return new Response(null, { status: 204 }); };
   t.after(() => { globalThis.fetch = originalFetch; });
 
+  const rejected = await demo.fetch(new Request("https://demo.example/api/demo/start", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: "{\"failure\":\"visitor-command\"}",
+  }));
+  assert.equal(rejected.status, 400);
+  assert.equal(dispatches.length, 0);
+
   const request = () => new Request("https://demo.example/api/demo/start", {
-    method: "POST", headers: { "Content-Type": "application/json", "CF-Connecting-IP": "192.0.2.1" }, body: "{\"seed\":42}",
+    method: "POST", headers: { "Content-Type": "application/json", "CF-Connecting-IP": "192.0.2.1" }, body: "{\"failure\":\"checkout\"}",
   });
   const started = await demo.fetch(request());
   assert.equal(started.status, 202);
   const run = (await started.json()).run;
   assert.equal(dispatches.length, 1);
-  assert.deepEqual(dispatches[0][1].inputs, { run_id: run.id, seed: "42" });
+  assert.deepEqual(dispatches[0][1].inputs, { run_id: run.id, seed: String(run.seed), failure: "checkout" });
 
   const joined = await demo.fetch(request());
   assert.equal((await joined.json()).joined, true);
   assert.equal(dispatches.length, 1);
-  assert.equal((await update(demo, { type: "claim", run_id: run.id, invocation: "123:1", seed: 42 })).status, 200);
-  assert.equal((await update(demo, { type: "claim", run_id: run.id, invocation: "124:1", seed: 42 })).status, 409);
+  assert.equal((await update(demo, { type: "claim", run_id: run.id, invocation: "123:1", seed: run.seed })).status, 200);
+  assert.equal((await update(demo, { type: "claim", run_id: run.id, invocation: "124:1", seed: run.seed })).status, 409);
 
   const event = { at: "2026-10-24T12:00:00Z", phase: "baseline", kind: "phase", message: "Measuring", data: {} };
   assert.equal((await update(demo, { type: "event", run_id: run.id, invocation: "123:1", sequence: 0, event })).status, 200);

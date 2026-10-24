@@ -22,8 +22,8 @@ const TITLES: Record<string, string> = {
 
 type Tab = "investigation" | "patch";
 
-function Investigation({ title, events, meta, now, model, controls, footer, finalDiff = null }: {
-  title: string; events: RunEvent[]; meta: Meta; now: number; model: string; controls: React.ReactNode; footer: React.ReactNode; finalDiff?: string | null;
+function Investigation({ title, events, meta, now, controls, footer, finalDiff = null }: {
+  title: string; events: RunEvent[]; meta: Meta; now: number; controls: React.ReactNode; footer: React.ReactNode; finalDiff?: string | null;
 }) {
   const [tab, setTab] = useState<Tab>("investigation");
   const story = useMemo(() => buildStory(events, now, meta), [events, now, meta]);
@@ -94,26 +94,23 @@ function Investigation({ title, events, meta, now, model, controls, footer, fina
           {state === "unresolved" && <p className="stop-reason">{done?.reason ?? "No verified fix."}</p>}
         </aside>
       </div>
-      <footer className="footnote"><span title={model}>Nemotron · Nebius Token Factory</span>{footer}</footer>
+      {footer && <footer className="footnote">{footer}</footer>}
     </main>
   );
 }
-
-const modelName = (id: string | null) => (id ?? "").replace(/^nvidia\//, "").replace(/-/g, " ") || "NVIDIA Nemotron";
 
 function SavedView({ run }: { run: Run }) {
   const now = run.events.length ? Date.parse(run.events.at(-1)!.at) - Date.parse(run.events[0].at) : 0;
   const meta = useMemo<Meta>(() => ({ endpoint: run.objective?.endpoint ?? "", service: run.service, target: run.objective?.target ?? 0, candidates: run.candidates }), [run]);
   const footer = run.actions_url && <a href={run.actions_url} target="_blank" rel="noreferrer">Execution log</a>;
   return <Investigation title={TITLES[run.scenario ?? ""] ?? run.service} events={run.events} meta={meta} now={now}
-    model={modelName(run.model)} controls={null} footer={footer} />;
+    controls={null} footer={footer} />;
 }
 
 function LocalLiveView() {
   const feed = useLiveFeed(true);
   const baseline = feed.events.find((e) => e.kind === "baseline")?.message ?? "";
   const meta = useMemo<Meta>(() => ({ endpoint: baseline.split(" p99")[0], service: feed.id?.replace(/^\d{8}-\d{6}-/, "") ?? "", target: Number(baseline.match(/target < ([\d.]+)ms/)?.[1] ?? 100), candidates: [] }), [baseline, feed.id]);
-  const model = feed.events.find((e) => e.kind === "model_call")?.data.model ?? null;
   if (!feed.events.length) return <main id="main-content" className="live-waiting">
     <h1>Live investigation</h1>
     <p role="status">{feed.state === "error" ? "Live server is offline. Start it from the project directory." : feed.state === "waiting" ? "Connected. Waiting for an investigation to start." : "Connecting to the live server…"}</p>
@@ -126,16 +123,23 @@ function LocalLiveView() {
   </main>;
   const label = feed.state === "done" ? "Finished · watching for the next run" : feed.state === "error" ? "Connection interrupted · reconnecting" : `Live · ${clock(feed.now)}`;
   return <Investigation key={feed.id} finalDiff={feed.diff} title={meta.service || "Live investigation"}
-    events={feed.events} meta={meta} now={feed.now} model={modelName(model)}
+    events={feed.events} meta={meta} now={feed.now}
     controls={<span className="clock live-clock" role="status">{label}</span>}
     footer={feed.state === "done" ? "Latest completed investigation" : "Following the local investigation"} />;
 }
 
 function LiveView() { return HOSTED ? <HostedLiveView /> : <LocalLiveView />; }
 
+type FailureMode = "random" | "checkout" | "catalog";
+const FAILURE_MODES: Record<FailureMode, { label: string; load: string }> = {
+  random: { label: "Surprise production fault", load: "Up to 750 concurrent users" },
+  checkout: { label: "Checkout write contention", load: "650–750 concurrent shoppers" },
+  catalog: { label: "Catalog query fan-out", load: "160–200 concurrent browsers" },
+};
+
 function HostedLiveView() {
   const feed = useHostedFeed();
-  const [seed, setSeed] = useState("");
+  const [failure, setFailure] = useState<FailureMode>("random");
   const running = feed.run && ["queued", "running"].includes(feed.run.state);
   const challenge = feed.run?.challenge;
   const events = useMemo(() => {
@@ -147,51 +151,70 @@ function HostedLiveView() {
     target: challenge?.objective.target ?? 100, candidates: [] }), [challenge]);
   const beginning = events.length ? Date.parse(events[0].at) : feed.run?.created_at ?? feed.now;
   const elapsed = Math.max(0, (running ? feed.now : feed.run?.finished_at ?? feed.now) - beginning);
-  const startForm = <form className="start-run" onSubmit={(e) => { e.preventDefault(); void feed.start(seed); }}>
+  const selected = FAILURE_MODES[failure];
+  const startForm = <form className="incident-controls" onSubmit={(e) => { e.preventDefault(); void feed.start(failure); }}>
+    <label className="incident-field">
+      <span>Failure injection</span>
+      <select value={failure} onChange={(e) => setFailure(e.target.value as FailureMode)}>
+        {(Object.entries(FAILURE_MODES) as [FailureMode, (typeof FAILURE_MODES)[FailureMode]][]).map(([value, item]) =>
+          <option key={value} value={value}>{item.label}</option>)}
+      </select>
+      <small>The investigator never receives this selection.</small>
+    </label>
+    <div className="incident-field">
+      <span>Load profile</span>
+      <strong>{selected.load}</strong>
+      <small>Fresh data and timing on every run.</small>
+    </div>
     <button type="submit" disabled={feed.starting || feed.connection !== "connected"}>
-      <span>{feed.starting ? "Dispatching…" : feed.run ? "Trigger another incident" : "Trigger a live incident"}</span>
+      <span>{feed.starting ? "Injecting…" : feed.run ? "Inject another failure" : "Inject failure and start"}</span>
       <span aria-hidden="true">↗</span>
     </button>
-    <details><summary>Set seed</summary><label htmlFor="challenge-seed">Reproduction seed <span>(optional)</span></label>
-      <input id="challenge-seed" inputMode="numeric" type="number" min="0" max="4294967295" step="1" value={seed} onChange={(e) => setSeed(e.target.value)} placeholder="Random" />
-    </details>
   </form>;
   const connection = feed.connection === "disabled" ? "Live runs are temporarily unavailable." : feed.connection === "offline" ? "Connection interrupted. Reconnecting…" : feed.connection === "connecting" ? "Connecting…" : null;
   const notices = <>
     {connection && <p className="connection-note" role="status">{connection} {feed.connection !== "connecting" && <button className="text-action" onClick={feed.reconnect}>Reconnect</button>}</p>}
     {feed.error && <p className="run-error" role="alert">{feed.error}</p>}
   </>;
-  if (!challenge) return <main id="main-content" className="live-waiting live-launch">
-    <section className="launch-copy">
-      <p className="launch-kicker"><span aria-hidden="true" /> Live production simulation</p>
-      <h1>{running ? <>Incident dispatched.<br /><em>HotPath is taking over.</em></> : <>Trigger the slowdown.<br /><em>Watch HotPath find it.</em></>}</h1>
-      <p className="launch-deck">{running ? feed.run?.message : "A fresh service goes under real load. HotPath detects the SLO breach, asks Nemotron for competing diagnoses, tests the code, and accepts only a measured fix."}</p>
-      {notices}
-      {!running && startForm}
-      {feed.run?.state === "failed" && <p className="run-error">{feed.run.message}</p>}
-      {running
-        ? <p className="launch-meta">RUN {feed.run?.seed} <span>·</span> GitHub runner starting <span>·</span> Keep this page open</p>
-        : <p className="launch-meta">ISOLATED DOCKER RUNNER <span>·</span> REAL MEASUREMENTS <span>·</span> NO REPLAY</p>}
-    </section>
-    <aside className="autonomy-loop" aria-label="Autonomous investigation sequence">
-      <p>The autonomous loop</p>
+  if (!challenge) return <main id="main-content" className="live-waiting incident-console">
+    <header className="console-heading">
+      <div>
+        <p className="console-kicker"><span aria-hidden="true" /> Incident control / public lab</p>
+        <h1>Production incident simulator</h1>
+        <p>Inject an allowlisted performance fault into an isolated service. HotPath measures the SLO, investigates the cause, and verifies its own fix.</p>
+      </div>
+      <dl className="console-facts">
+        <div><dt>Runner</dt><dd>GitHub hosted</dd></div>
+        <div><dt>Environment</dt><dd>Isolated Docker</dd></div>
+        <div><dt>Daily allowance</dt><dd>3 incidents</dd></div>
+      </dl>
+    </header>
+    {notices}
+    {!running ? startForm : <div className="dispatch-readout" role="status">
+      <div><span>Failure queued</span><strong>{FAILURE_MODES[feed.run?.failure ?? "random"].label}</strong></div>
+      <div><span>Runner state</span><strong>{feed.run?.message}</strong></div>
+      <div><span>Run ID</span><strong>{feed.run?.id.slice(0, 8)}</strong></div>
+    </div>}
+    {feed.run?.state === "failed" && <p className="run-error">{feed.run.message}</p>}
+    <section className="response-pipeline" aria-label="Autonomous investigation sequence">
+      <header><h2>Autonomous response</h2><p>Begins as soon as the service is under load.</p></header>
       <ol>
-        <li className={running ? "is-current" : undefined}><span>01</span><div><strong>Boot a fresh service</strong><small>Randomized data, workload, and fault</small></div></li>
+        <li className={running ? "is-current" : undefined}><span>01</span><div><strong>Boot service</strong><small>Randomized data and workload</small></div></li>
         <li><span>02</span><div><strong>Detect the SLO breach</strong><small>Measure p99 latency under real load</small></div></li>
         <li><span>03</span><div><strong>Investigate the cause</strong><small>Form hypotheses and run experiments</small></div></li>
         <li><span>04</span><div><strong>Race candidate fixes</strong><small>Reject anything that breaks correctness</small></div></li>
         <li><span>05</span><div><strong>Verify the winner</strong><small>Repeated runs must recover the SLO</small></div></li>
       </ol>
-    </aside>
+    </section>
   </main>;
   return <>
     <div className="live-toolbar">
-      <span><b>Live incident</b> / seed {feed.run!.seed} / {challenge.dataset} / {challenge.concurrency} concurrent users</span>
+      <span><b>Live incident</b> / {FAILURE_MODES[challenge.failure].label} / {challenge.dataset} / {challenge.concurrency} concurrent users</span>
       {!running && startForm}
     </div>
     {notices}
     <Investigation key={feed.run!.id} title={challenge.title} events={events} meta={meta} now={elapsed}
-      finalDiff={feed.run!.diff} model={modelName(events.find((e) => e.kind === "model_call")?.data.model ?? null)}
+      finalDiff={feed.run!.diff}
       controls={<span role="status">{feed.run!.state === "failed" ? "Run stopped" : running ? `Live · ${clock(elapsed)}` : "Investigation finished"}</span>}
       footer={feed.run!.execution_url && <a href={feed.run!.execution_url} target="_blank" rel="noreferrer">Execution log</a>} />
   </>;

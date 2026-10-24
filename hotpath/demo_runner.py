@@ -68,7 +68,7 @@ class Publisher:
             self.send("setup_failed")
 
 
-def run(publisher: Publisher, seed: int) -> None:
+def run(publisher: Publisher, seed: int, failure: str = "random") -> None:
     # This acknowledgement is required even on manual workflow dispatch/reruns.
     publisher.send("claim", seed=seed)
     from hotpath.agent.state import Budget, Event, Phase
@@ -77,7 +77,7 @@ def run(publisher: Publisher, seed: int) -> None:
     from hotpath.cli import record_investigation
     from hotpath.models.nemotron import NemotronClient
 
-    challenge = generate_challenge(seed)
+    challenge = generate_challenge(seed, family=None if failure == "random" else failure)
     store = InvestigationStore.create(challenge.repo)
     event = Event(phase=Phase.ANALYZE_REPOSITORY, kind="challenge", message="Fresh benchmark case generated", data=challenge.public)
     store.record(event)
@@ -105,8 +105,11 @@ def main() -> int:
     seed_text = os.environ["DEMO_SEED"]
     if not re.fullmatch(r"\d{1,10}", seed_text) or int(seed_text) > 2**32 - 1:
         raise ValueError("Invalid challenge seed")
+    failure = os.environ.get("DEMO_FAILURE", "random")
+    if failure not in {"random", "checkout", "catalog"}:
+        raise ValueError("Invalid failure mode")
     try:
-        run(publisher, int(seed_text))
+        run(publisher, int(seed_text), failure)
     except Exception:
         # Full evidence stays in artifacts. Do not echo environment values or an
         # HTTP response that might contain sensitive details into the public feed.

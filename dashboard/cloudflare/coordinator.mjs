@@ -59,9 +59,9 @@ export class LiveDemo {
   }
 
   async start(data, request) {
-    if (Object.keys(data).some((key) => key !== "seed") ||
-        (data.seed != null && (!Number.isInteger(data.seed) || data.seed < 0 || data.seed > 4294967295))) {
-      return json({ error: "Seed must be a whole number from 0 to 4294967295." }, 400);
+    if (Object.keys(data).some((key) => key !== "failure") ||
+        !["random", "checkout", "catalog"].includes(data.failure ?? "random")) {
+      return json({ error: "Choose a supported failure mode." }, 400);
     }
     const now = Date.now();
     let run = await this.ctx.storage.get("run");
@@ -78,7 +78,7 @@ export class LiveDemo {
     usage.count++;
     usage.visitors[visitor] = now;
     run = {
-      id: crypto.randomUUID(), seed: data.seed ?? crypto.getRandomValues(new Uint32Array(1))[0],
+      id: crypto.randomUUID(), seed: crypto.getRandomValues(new Uint32Array(1))[0], failure: data.failure ?? "random",
       state: "queued", created_at: now, deadline: now + QUEUE_MS, count: 0, bytes: 0,
       challenge: null, diff: null, message: "Waiting for a GitHub runner…", execution_url: null,
     };
@@ -94,7 +94,9 @@ export class LiveDemo {
           Authorization: `Bearer ${this.env.GITHUB_DISPATCH_TOKEN}`, "Content-Type": "application/json",
           Accept: "application/vnd.github+json", "User-Agent": "HotPath-demo", "X-GitHub-Api-Version": "2022-11-28",
         },
-        body: JSON.stringify({ ref: this.env.GITHUB_REF, inputs: { run_id: run.id, seed: String(run.seed) } }),
+        body: JSON.stringify({ ref: this.env.GITHUB_REF, inputs: {
+          run_id: run.id, seed: String(run.seed), failure: run.failure,
+        } }),
       });
       if (!response.ok) {
         const current = await this.ctx.storage.get("run");

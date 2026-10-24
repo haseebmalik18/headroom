@@ -3,9 +3,10 @@ import type { RunEvent } from "../data/types";
 
 export interface LiveRun {
   id: string; seed: number; state: "queued" | "running" | "done" | "failed";
+  failure?: "random" | "checkout" | "catalog";
   created_at: number; finished_at?: number; message: string;
   execution_url: string | null; diff: string | null;
-  challenge: { title: string; dataset: string; concurrency: number; fingerprint: string;
+  challenge: { title: string; dataset: string; failure: "checkout" | "catalog"; concurrency: number; fingerprint: string;
     objective: { endpoint: string; target: number } } | null;
 }
 export interface LiveSnapshot { run: LiveRun | null; events: RunEvent[] }
@@ -85,13 +86,13 @@ export function useHostedFeed() {
     return () => clearInterval(timer);
   }, [snapshot.run?.id, snapshot.run?.state]);
 
-  const start = async (seed: string) => {
+  const start = async (failure: "random" | "checkout" | "catalog") => {
     if (starting) return;
     setStarting(true); setError(null);
     try {
       const response = await fetch("/api/demo/start", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(seed.trim() ? { seed: Number(seed) } : {}),
+        body: JSON.stringify({ failure }),
         signal: AbortSignal.timeout(20_000),
       });
       const result = await response.json();

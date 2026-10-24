@@ -10,6 +10,9 @@ on:
       seed:
         description: Seed for a fresh benchmark case
         required: true
+      failure:
+        description: Allowlisted failure fixture (random, checkout, or catalog)
+        required: true
 
 permissions:
   contents: read
@@ -26,6 +29,7 @@ jobs:
       COLUMNS: "120"
       DEMO_RUN_ID: ${{ inputs.run_id }}
       DEMO_SEED: ${{ inputs.seed }}
+      DEMO_FAILURE: ${{ inputs.failure }}
       DEMO_URL: ${{ vars.DEMO_URL }}
       DEMO_CALLBACK_SECRET: ${{ secrets.DEMO_CALLBACK_SECRET }}
     steps:

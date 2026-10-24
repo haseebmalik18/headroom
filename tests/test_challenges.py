@@ -23,6 +23,8 @@ def test_both_families_vary_data_and_keep_correctness_judges(tmp_path):
         case = generate_challenge(seed, root=tmp_path)
         manifest = json.loads((case.repo.parent / "manifest.json").read_text())
         families.add(manifest["family"])
+        assert case.public["failure"] == manifest["family"]
+        assert case.public["concurrency"] in ({650, 700, 750} if manifest["family"] == "checkout" else {160, 180, 200})
         datasets.add(case.public["dataset"])
         source = project / TEMPLATES[manifest["family"]]
         for test in (source / "tests").glob("*.py"):
@@ -39,8 +41,22 @@ def test_both_families_vary_data_and_keep_correctness_judges(tmp_path):
     assert len(datasets) >= 4
 
 
+@pytest.mark.parametrize("family", ["checkout", "catalog"])
+def test_allowlisted_failure_mode_selects_family_without_entering_repo(family, tmp_path):
+    case = generate_challenge(42, family=family, root=tmp_path)
+    assert case.public["failure"] == family
+    assert json.loads((case.repo.parent / "manifest.json").read_text())["family"] == family
+    assert "failure:" not in (case.repo / "hotpath.yaml").read_text()
+
+
 @pytest.mark.parametrize("seed", [-1, 2**32, True, "7", 1.2])
 def test_invalid_seeds_create_no_files(seed, tmp_path):
     with pytest.raises(ValueError):
         generate_challenge(seed, root=tmp_path)
+    assert not list(tmp_path.iterdir())
+
+
+def test_unknown_failure_mode_creates_no_files(tmp_path):
+    with pytest.raises(ValueError):
+        generate_challenge(7, family="visitor-command", root=tmp_path)
     assert not list(tmp_path.iterdir())

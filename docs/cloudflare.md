@@ -10,8 +10,9 @@ workflow, stores its current event buffer, and fans updates out through hibernat
 WebSockets. GitHub runs Docker and Nemotron, then posts signed progress updates to
 the Worker. The local build still supports the Python server's event stream.
 
-Visitors can provide only an optional 32-bit numeric seed. They cannot select a
-repository, model, command, callback URL, or patch. The workflow claims a run
+Visitors can select only an allowlisted failure fixture (`random`, `checkout`, or
+`catalog`). They cannot provide a seed, repository, model, command, callback URL,
+or patch. The coordinator generates the hidden reproduction seed. The workflow claims a run
 reservation before it initializes the model client or Docker. The public controls
 allow three starts per UTC day, one active run at a time, one new run per visitor
 every ten minutes, and at most 100 live sockets. Queue reservations expire after
@@ -112,6 +113,6 @@ secret. Wrangler's OAuth login may be unable to read account subscriptions
 publication; successful login does not establish the billing plan.
 
 After publication, confirm the returned URL serves the dashboard, History loads,
-and `/api/status` reports `live.enabled: true`. Start one seeded run, verify its
+and `/api/status` reports `live.enabled: true`. Start one incident, verify its
 GitHub execution link, live evidence, final outcome, and retained artifact. In
 Cloudflare's dashboard, monitor request, error, Durable Object, and CPU metrics.
