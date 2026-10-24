@@ -102,7 +102,8 @@ class Investigator:
         actual = baseline.median_load(objective.metric)
         self.emit(Phase.BASELINE, "baseline",
                   f"{objective.endpoint} {objective.metric} {objective.show(actual)} (goal: {objective.text()})",
-                  summary=baseline.summary(), slo_met=baseline.slo_met, objective=objective.model_dump())
+                  summary=baseline.summary(), slo_met=baseline.slo_met, objective=objective.model_dump(),
+                  objectives=[o.model_dump() for o in baseline.goals])
         context = Context(repo_map=repo_map, baseline=baseline)
         if baseline.slo_met:
             return self._finish(Phase.SLO_ALREADY_MET, context, reason="baseline already meets the SLO")

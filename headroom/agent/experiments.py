@@ -11,7 +11,7 @@ from pathlib import Path
 from pydantic import BaseModel
 
 from headroom.agent.schemas import ExperimentPlan
-from headroom.benchmark.results import BenchmarkResult, DbActivity
+from headroom.benchmark.results import BenchmarkResult, DbActivity, EndpointStats
 from headroom.benchmark.runner import run_benchmark
 from headroom.config import Workload, load_config
 
@@ -32,6 +32,7 @@ class LevelObservation(BaseModel):
     throughput_rps: float
     error_rate: float
     requests: int | None = None  # measured requests, and the window they ran in
+    endpoints: dict[str, EndpointStats] | None = None  # the same, split by endpoint, when the load test reports it
     duration_s: float | None = None
     container_cpu_percent: dict[str, float] | None = None
     container_memory_mb: dict[str, float] | None = None
@@ -55,6 +56,11 @@ class ExperimentResult(BaseModel):
                          f"{lv.error_rate:.2%} | {measured}")
         for lv in self.levels:
             details = []
+            if lv.endpoints:
+                details.append("per endpoint: " + "; ".join(
+                    f"{name} p50 {e.p50_ms:.1f} / p99 {e.p99_ms:.1f} ms, {e.throughput_rps:.1f} req/s, "
+                    f"errors {e.error_rate:.2%}, {e.requests} requests" for name, e in lv.endpoints.items()
+                ))
             if lv.container_cpu_percent is not None:
                 cpu = ", ".join(f"{k} {v:.0f}%" for k, v in lv.container_cpu_percent.items())
                 mem = ", ".join(f"{k} {v:.0f} MB" for k, v in (lv.container_memory_mb or {}).items())
@@ -87,7 +93,7 @@ def observations(result: BenchmarkResult, plan: ExperimentPlan) -> list[LevelObs
         obs = LevelObservation(
             concurrency=load.concurrency, p50_ms=load.p50_ms, p95_ms=load.p95_ms, p99_ms=load.p99_ms,
             throughput_rps=load.throughput_rps, error_rate=load.error_rate,
-            requests=load.requests, duration_s=load.duration_s,
+            requests=load.requests, duration_s=load.duration_s, endpoints=load.endpoints or None,
         )
         if "container_resources" in wanted and run.containers:
             obs.container_cpu_percent = {k: v.cpu_percent_avg for k, v in run.containers.items()}

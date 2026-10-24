@@ -30,12 +30,16 @@ class CandidateSet(BaseModel):
 def render_baseline(context: Context) -> str:
     base = context.baseline
     objective = base.objective
-    lines = [
-        "## Objective",
-        f"{objective.endpoint}: the goal is {objective.text()} under the load below.",
-        "",
-        "## Baseline measurement (production-like load test)",
-    ]
+    if len(base.goals) == 1:
+        lines = ["## Objective", f"{objective.endpoint}: the goal is {objective.text()} under the load below."]
+    else:
+        lines = ["## Objectives (a fix must meet all of them, and may not make any endpoint miss a goal it meets now)"]
+        for goal in base.goals:
+            value = base.median_value(goal)
+            status = "" if value is None else f"; now {goal.show(value)} ({'met' if goal.met(value) else 'missed'})"
+            lines.append(f"- {goal.endpoint}: {goal.text()}{status}")
+        lines.append(f"The investigation is about the first one, {objective.endpoint}.")
+    lines += ["", "## Baseline measurement (production-like load test)"]
     for run in base.runs:
         load = run.load
         lines.append(
@@ -43,6 +47,11 @@ def render_baseline(context: Context) -> str:
             f"p95 {load.p95_ms:.1f} ms, p99 {load.p99_ms:.1f} ms, {load.throughput_rps:.1f} req/s, "
             f"errors {load.error_rate:.2%}"
         )
+        if load.endpoints:
+            lines.append("  per endpoint: " + "; ".join(
+                f"{name} p50 {e.p50_ms:.1f} / p99 {e.p99_ms:.1f} ms, {e.throughput_rps:.1f} req/s, errors {e.error_rate:.2%}"
+                for name, e in load.endpoints.items()
+            ))
         if run.containers:
             lines.append("  containers: " + "; ".join(
                 f"{name} CPU {u.cpu_percent_avg:.0f}% memory {u.memory_mb_max:.0f} MB" for name, u in run.containers.items()
@@ -83,7 +92,9 @@ def render_verification(report: VerificationReport) -> str:
     return (f"  - verification over {metric.n} repeated runs: {objective.metric} per run {values}; "
             f"median {objective.show(metric.median)}, 95% CI {objective.show(metric.ci_low)}-{objective.show(metric.ci_high)}; "
             f"{report.candidate.slo_met_runs} of {metric.n} runs met the goal ({objective.text()}) -> "
-            + ("SLO recovered" if report.slo_recovered else "not verified (the whole CI must meet the goal)"))
+            + ("SLO recovered" if report.slo_recovered else "not verified (the whole CI must meet the goal)")
+            + "".join(f"\n    {g.objective.endpoint}: median {g.objective.show(g.candidate.median)}, "
+                      f"{'meets' if g.met else 'misses'} {g.objective.text()}" for g in report.goals[1:]))
 
 
 def render_previous_races(context: Context) -> str:

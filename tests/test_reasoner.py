@@ -139,3 +139,25 @@ def test_previous_races_explain_a_failed_verification():
     assert "- row-locks (SELECT ... FOR UPDATE): winner; p99 14 ms" in text
     assert "per run 14.0 ms, 15.0 ms, 14.0 ms, 18.0 ms, 114 ms" in text
     assert "4 of 5 runs met the goal (p99 latency under 100 ms) -> not verified" in text
+
+
+async def test_hypotheses_prompt_lists_every_objective_and_endpoint():
+    from headroom.benchmark.results import EndpointStats
+
+    context = _context()
+    reserve = Objective(endpoint="POST /inventory/reserve", target=100)
+    products = Objective(endpoint="GET /products", target=50)
+    run = context.baseline.runs[0]
+    run.load.endpoints = {
+        "POST /inventory/reserve": EndpointStats(requests=90, p50_ms=3600, p95_ms=3800, p99_ms=3850, throughput_rps=80, error_rate=0),
+        "GET /products": EndpointStats(requests=10, p50_ms=10, p95_ms=20, p99_ms=30, throughput_rps=8, error_rate=0),
+    }
+    context.baseline = context.baseline.model_copy(update={"objectives": [reserve, products]})
+    seen = []
+
+    await _reasoner({"hypotheses": [HYPOTHESIS]}, seen).form_hypotheses(context, limit=3)
+
+    prompt = seen[0]["messages"][1]["content"]
+    assert "- POST /inventory/reserve: p99 latency under 100 ms; now 3,850 ms (missed)" in prompt
+    assert "- GET /products: p99 latency under 50 ms; now 30.0 ms (met)" in prompt
+    assert "GET /products p50 10.0 / p99 30.0 ms, 8.0 req/s" in prompt
