@@ -69,3 +69,13 @@ def test_summarize_without_runs_raises():
 
     with pytest.raises(ValueError, match="service failed to start"):
         summarize(empty, OBJECTIVE)
+
+
+def test_throughput_is_verified_by_the_low_end_of_its_interval():
+    goal = Objective(endpoint="POST /inventory/reserve", metric="throughput_rps", target=240)
+    steady = _repeated("fix", [9, 9, 9, 9, 9, 9, 9], rps=248)       # 248..254 req/s
+    marginal = _repeated("fix", [9, 9, 9, 9, 9, 9, 9], rps=236)     # 236..242 req/s
+
+    assert build_report(steady, goal).slo_recovered
+    assert not build_report(marginal, goal).slo_recovered
+    assert build_report(steady, goal).candidate.slo_met_runs == 7

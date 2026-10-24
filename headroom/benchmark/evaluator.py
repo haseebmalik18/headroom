@@ -2,8 +2,8 @@
 
 Nemotron proposes patches; this module decides which one wins. A candidate is
 rejected outright if it breaks any hard constraint (tests, startup, benchmark,
-error rate, memory). Only valid candidates are ranked: lowest objective metric
-first, highest throughput as the tie-breaker. Speed never excuses a failed test.
+error rate, memory). Only valid candidates are ranked: best objective metric
+first (lowest latency or error rate, highest throughput), then the other of latency and throughput. Speed never excuses a failed test.
 
 When a candidate was benchmarked several times, its metrics are the medians
 across those runs, and its error rate and memory are the worst seen.
@@ -101,17 +101,19 @@ def evaluate(
             entry.metric_value = metric
             entry.p99_ms = result.median_load("p99_ms")
             entry.throughput_rps = result.median_load("throughput_rps")
-            entry.meets_slo = metric < objective.target
+            entry.meets_slo = objective.met(metric)
             entry.p99_change_pct = _change_pct(entry.p99_ms, base_p99)
             entry.throughput_change_pct = _change_pct(entry.throughput_rps, base_rps)
-            if entry.status == "valid" and base_metric is not None and metric >= base_metric:
-                entry.notes.append("not faster than baseline")
+            if entry.status == "valid" and base_metric is not None and not objective.better(metric, base_metric):
+                entry.notes.append("not better than baseline")
         evaluations.append(entry)
 
     def rank(c: CandidateEvaluation) -> tuple[float, float]:
+        if objective.higher_is_better:
+            return (-c.metric_value, c.p99_ms or 0)
         return (c.metric_value, -(c.throughput_rps or 0))
 
-    eligible = [c for c in evaluations if c.status == "valid" and "not faster than baseline" not in c.notes]
+    eligible = [c for c in evaluations if c.status == "valid" and "not better than baseline" not in c.notes]
     winner = min(eligible, key=rank, default=None)
     if winner:
         winner.status = "winner"

@@ -10,10 +10,47 @@ from pydantic import BaseModel
 CONFIG_FILE = "headroom.yaml"
 
 
+Metric = Literal["p50_ms", "p95_ms", "p99_ms", "throughput_rps", "error_rate"]
+
+# What each objective metric means, and which direction is better.
+METRICS: dict[str, tuple[str, bool]] = {   # metric -> (description, higher is better)
+    "p50_ms": ("p50 latency", False),
+    "p95_ms": ("p95 latency", False),
+    "p99_ms": ("p99 latency", False),
+    "throughput_rps": ("throughput", True),
+    "error_rate": ("error rate", False),
+}
+
+
 class Objective(BaseModel):
+    """One measurable SLO on one endpoint: latency, throughput or error rate."""
+
     endpoint: str
-    metric: Literal["p50_ms", "p95_ms", "p99_ms"] = "p99_ms"
+    metric: Metric = "p99_ms"
     target: float
+
+    @property
+    def higher_is_better(self) -> bool:
+        return METRICS[self.metric][1]
+
+    def met(self, value: float) -> bool:
+        return value >= self.target if self.higher_is_better else value < self.target
+
+    def better(self, a: float, b: float) -> bool:
+        """Whether `a` is strictly better than `b` for this objective."""
+        return a > b if self.higher_is_better else a < b
+
+    def show(self, value: float) -> str:
+        if self.metric == "error_rate":
+            return f"{value * 100:.3f}".rstrip("0").rstrip(".") + "%"
+        unit = "req/s" if self.metric == "throughput_rps" else "ms"
+        return f"{value:,.0f} {unit}" if value >= 100 or self.higher_is_better else f"{value:.1f} {unit}"
+
+    def text(self) -> str:
+        name = METRICS[self.metric][0]
+        if self.metric == "error_rate":
+            return f"{name} under {self.target * 100:g}%"
+        return f"{name} of at least {self.show(self.target)}" if self.higher_is_better else f"{name} under {self.target:g} ms"
 
 
 class Constraints(BaseModel):

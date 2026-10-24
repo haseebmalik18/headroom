@@ -107,7 +107,7 @@ def test_no_winner_when_nothing_beats_baseline():
 
     assert evaluation.winner is None
     assert evaluation.candidates[0].status == "valid"
-    assert any("not faster than baseline" in r for r in evaluation.candidates[0].notes)
+    assert any("not better than baseline" in r for r in evaluation.candidates[0].notes)
 
 
 def test_valid_winner_that_misses_slo_does_not_recover_it():
@@ -143,3 +143,25 @@ def test_fastest_rejected_is_none_when_fastest_is_valid():
 
     assert evaluation.winner == "b"
     assert evaluation.fastest_rejected is None
+
+
+THROUGHPUT = Objective(endpoint="POST /inventory/reserve", metric="throughput_rps", target=240)
+
+
+def test_throughput_goal_ranks_the_highest_valid_throughput_first():
+    baseline = _result("baseline", p99=800.0, rps=186.0)
+    candidates = {
+        "per-sku-locks": _result("per-sku-locks", p99=10.0, rps=246.0),
+        "atomic-update": _result("atomic-update", p99=9.0, rps=250.0),
+        "no-lock": _result("no-lock", p99=8.0, rps=255.0, passed=11),
+        "slower": _result("slower", p99=900.0, rps=180.0),
+    }
+
+    ev = evaluate(baseline, candidates, THROUGHPUT, CONSTRAINTS)
+
+    statuses = {c.name: c.status for c in ev.candidates}
+    assert ev.winner == "atomic-update"
+    assert statuses["no-lock"] == "rejected"
+    assert ev.fastest_rejected == "no-lock"          # the best number came from a broken fix
+    assert "not better than baseline" in next(c for c in ev.candidates if c.name == "slower").notes
+    assert ev.slo_recovered

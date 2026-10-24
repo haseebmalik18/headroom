@@ -25,7 +25,7 @@ class VerificationReport(BaseModel):
     candidate: RunStatistics
     metric_comparison: Comparison | None
     throughput_comparison: Comparison | None
-    slo_recovered: bool           # the candidate's whole confidence interval is under target
+    slo_recovered: bool           # the candidate's whole confidence interval meets the target
     error: str | None = None
 
 
@@ -43,7 +43,7 @@ def summarize(result: BenchmarkResult, objective: Objective) -> RunStatistics:
         throughput_rps=describe([r.load.throughput_rps for r in result.runs]),
         error_rate_max=max(r.load.error_rate for r in result.runs),
         memory_mb_max=max(memory) if memory else None,
-        slo_met_runs=sum(v < objective.target for v in metric_values),
+        slo_met_runs=sum(objective.met(v) for v in metric_values),
     )
 
 
@@ -58,5 +58,7 @@ def build_report(
         candidate=cand,
         metric_comparison=compare(base.metric, cand.metric) if base else None,
         throughput_comparison=compare(base.throughput_rps, cand.throughput_rps) if base else None,
-        slo_recovered=cand.metric.ci_high < objective.target and bool(candidate.tests and candidate.tests.ok),
+        # The whole interval must meet the target: its worst end decides.
+        slo_recovered=objective.met(cand.metric.ci_low if objective.higher_is_better else cand.metric.ci_high)
+        and bool(candidate.tests and candidate.tests.ok),
     )

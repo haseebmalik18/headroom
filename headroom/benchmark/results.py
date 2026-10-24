@@ -123,7 +123,7 @@ class BenchmarkResult(BaseModel):
     @property
     def slo_met(self) -> bool | None:
         value = self.median_load(self.objective.metric)
-        return None if value is None else value < self.objective.target
+        return None if value is None else self.objective.met(value)
 
     def summary(self) -> dict:
         """Flat headline numbers for the primary run."""
