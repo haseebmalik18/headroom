@@ -2,8 +2,8 @@
 
 Headroom is a coding agent that has to prove its changes work.
 
-Give it a web service that misses its latency target. It finds out why, writes several candidate fixes, and hands one
-over only after the service's own tests and repeated load tests show that it works. NVIDIA Nemotron 3 Ultra
+Give it a web service that misses one of its SLOs: latency, throughput or error rate, on one endpoint or several. It
+finds out why, writes several candidate fixes, and hands one over only after the service's own tests and repeated load tests show that it works. NVIDIA Nemotron 3 Ultra
 (`nvidia/Nemotron-3-Ultra-550b-a55b`, served by Nebius Token Factory) proposes the causes and writes the code. It never
 decides whether a fix worked. Measurements and tests decide that, and a person approves the final change.
 
@@ -13,8 +13,8 @@ Built for the Nebius x NVIDIA Global AI Hackathon 2026, Coding and Agentic Engin
 
 ## What a run looks like
 
-From a real run on the pricing service, which caches each price for 2 seconds while a sale sends most traffic to five
-products:
+From a real run on an earlier, single-endpoint version of the pricing service, which caches each price for 2 seconds
+while a sale sends most traffic to five products:
 
 1. **Measure.** With 200 concurrent shoppers, `GET /products/{sku}/price` has a p99 of 1,858 ms. The target is 100 ms.
    All 8 correctness tests pass, so the service works. It is just slow.
@@ -38,6 +38,10 @@ A run takes 15 to 25 minutes, almost all of it load testing, and makes 3 to 12 m
   proposed a precomputed demand table that reached 2 ms and failed 6 of 8 tests.
 - **A fix must beat the original and meet the target** under the same load, as measured by Headroom. The model's own
   claims about its fix are not used.
+- **Every goal must hold, and none may get worse.** A service can have goals on several endpoints. A fix must meet all
+  of them, and one that makes an endpoint miss a goal it was meeting is rejected even if it fixes the slow one. On the
+  pricing service the stampede also slowed `POST /orders` to 2.1 s, and verification checks that the fix brings orders
+  back under their own 150 ms goal as well.
 - **One good run proves nothing.** Verification repeats the load test 7 times and uses a bootstrap confidence interval,
   so a single lucky or unlucky run cannot decide the outcome.
 - **Error rate and memory are limits too.** In one run, "make the connection pool bigger" passed every test but
@@ -49,16 +53,21 @@ Every run below was a full investigation, from baseline to verified patch, on a 
 Each scenario is a small FastAPI and PostgreSQL service with one realistic performance bug that Headroom is not told
 about.
 
-| Scenario | Bug | Before (p99) | After (p99) | Runs that recovered the SLO |
-|---|---|---|---|---|
-| Pricing | Cache stampede on hot products during a sale | 0.1 to 1.9 s | 1 to 26 ms | 5 of 5 |
-| Checkout | A global lock serializes stock reservations | 763 to 855 ms | 8 to 9 ms | 3 of 3 |
-| Catalog | Two extra queries per product on a category page | 127 ms | 4 to 7 ms | 2 of 2 |
-| Accounts | Password hashing blocks the async event loop | 2.5 s | 5 ms | 1 of 3 |
+| Scenario | Bug | Goal | Before | After | Runs that met every goal |
+|---|---|---|---|---|---|
+| Pricing | Cache stampede on hot products during a sale | price p99 under 100 ms | 0.1 to 1.9 s | 1 to 26 ms | 5 of 5 |
+| Pricing, two goals | The same stampede, now also slowing orders | price p99 under 100 ms, order p99 under 150 ms | prices 1.8 to 2.1 s | prices 7 to 13 ms, orders 34 to 62 ms | 3 of 3 |
+| Checkout | A global lock serializes stock reservations | p99 under 100 ms | 763 to 855 ms | 8 to 9 ms | 3 of 3 |
+| Checkout, throughput | The same lock caps reservations per second | at least 240 req/s | 187 req/s | 249 req/s | 1 of 1 |
+| Catalog | Two extra queries per product on a category page | p99 under 50 ms | 127 ms | 4 to 7 ms | 2 of 2 |
+| Accounts | Password hashing blocks the async event loop | p99 under 50 ms | 2.5 s | 5 ms | 1 of 3 |
 
 On Pricing, Nemotron named the stampede in 4 of 5 runs. In the fifth it blamed the connection pool, but it still wrote
 several different fixes, and the race picked request coalescing, which fixed the actual cause. One Pricing baseline
-measured only 107 ms, against the usual 1.7 s, because GitHub runners vary in speed. It still missed the target.
+measured only 107 ms, against the usual 1.7 s, because GitHub runners vary in speed. It still missed the target. The
+two-goal version adds more traffic so the stampede always develops; Nemotron named it in 2 of 3 runs, and all three
+were fixed in the first round. In the throughput run, the fix with the highest throughput failed a concurrency test
+and was rejected; per-SKU locking won.
 
 When Headroom cannot support a cause with evidence, it stops and says so rather than shipping a guess. Both unresolved
 Accounts runs ended that way, before the two reasoning rules in `headroom/agent/prompts.py` were added. Each rule came
@@ -106,10 +115,13 @@ Headroom needs a Docker Compose file that starts the service, a service that run
 
 ```yaml
 service: checkout-service
-objective:
-  endpoint: POST /inventory/reserve
-  metric: p99_ms
-  target: 100
+objectives:                     # the first is the one being investigated
+  - endpoint: POST /inventory/reserve
+    metric: p99_ms                # or p50_ms, p95_ms, throughput_rps, error_rate
+    target: 100
+  - endpoint: GET /products
+    metric: p99_ms
+    target: 50
 workload:
   concurrency: 500
   think_ms: 2000
@@ -123,7 +135,9 @@ runtime:
   protected_paths: [tests/*, load/*, headroom.yaml]
 ```
 
-A fix may not change `protected_paths`, so it cannot pass by editing the tests or the load test. The optional
+A fix may not change `protected_paths`, so it cannot pass by editing the tests or the load test. With goals on several
+endpoints, the load test reports each endpoint separately; [the pricing load test](evals/scenarios/pricing-service/load/prices.js)
+shows how. The optional
 `/metrics` endpoint exposes in-process timing spans; the examples include a 90-line implementation.
 
 ## How it is built
@@ -140,7 +154,8 @@ A fix may not change `protected_paths`, so it cannot pass by editing the tests o
 
 ## Limitations
 
-- It works on one latency target (p50, p95 or p99) for one HTTP endpoint at a time.
+- Goals are per-endpoint latency, throughput or error rate. It does not yet target memory, CPU or cost, and it
+  investigates one goal at a time, using the others as limits a fix must respect.
 - It reproduces the problem with a synthetic load test in a copy of the service. It does not read production traffic
   or traces.
 - The scenarios are small services with one bug each. They are realistic, but they were written for this project.
