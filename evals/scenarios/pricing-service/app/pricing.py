@@ -1,3 +1,10 @@
+"""Dynamic pricing: a product's price follows recent demand and remaining stock.
+
+Base prices are edited directly in the database by the merchandising tools, and order lines are also
+written by the warehouse and marketplace services, so this service does not see every change that
+affects a price.
+"""
+
 from dataclasses import dataclass
 import time
 
