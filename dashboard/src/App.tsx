@@ -18,6 +18,7 @@ const TITLES: Record<string, string> = {
   "lock-contention": "Slow checkout under load",
   "n-plus-one": "Slow catalog pages",
   "cache-stampede": "Pricing spikes during a sale",
+  "checkout-throughput": "Checkout throughput too low",
   "blocking-event-loop": "Stalling profile requests",
 };
 

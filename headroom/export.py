@@ -18,7 +18,9 @@ def _scenario_for(repo: Path) -> str | None:
         scenarios = load_scenarios()
     except FileNotFoundError:
         return None
-    return next((s.name for s in scenarios if str(repo).endswith(str(s.repo))), None)
+    # A scenario with its own objective runs from a prepared copy named after it (see evals.prepare).
+    by_copy = next((s.name for s in scenarios if s.objective and Path(repo).name == s.name), None)
+    return by_copy or next((s.name for s in scenarios if not s.objective and str(repo).endswith(str(s.repo))), None)
 
 
 def _candidates(context) -> list[dict]:

@@ -85,3 +85,10 @@ async def test_index_lists_runs_and_keeps_the_featured_one(tmp_path):
     assert summary["final_ms"] == 21
     multi = json.loads((out / f"{second.name}.json").read_text())
     assert [(c["round"], c["name"]) for c in multi["candidates"]] == [(1, "slow-fix"), (2, "atomic-update")]
+
+
+def test_a_scenario_run_under_its_own_objective_is_recognised():
+    from headroom.export import _scenario_for
+
+    assert _scenario_for(Path("/runner/.headroom/scenarios/checkout-throughput")) == "checkout-throughput"
+    assert _scenario_for(Path("/runner/work/headroom/examples/checkout-service")) == "lock-contention"
