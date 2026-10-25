@@ -102,10 +102,10 @@ def generate_challenge(seed: int | None = None, *, family: str | None = None,
         title = "Authentication under load"
         dataset = "100 accounts · 8 logins/s"
     elif family == "pricing":
-        orders = rng.choice((1_000_000, 1_200_000, 1_400_000))
-        concurrency = rng.choice((180, 200, 220))
-        think_ms = rng.choice((150, 200, 250))
-        _replace(repo / "db/schema.sql", "generate_series(1, 1200000)", f"generate_series(1, {orders})")
+        orders = rng.choice((500_000, 600_000, 700_000))
+        concurrency = rng.choice((240, 260, 280))
+        think_ms = rng.choice((120, 150, 180))
+        _replace(repo / "db/schema.sql", "generate_series(1, 600000)", f"generate_series(1, {orders})")
         _replace(repo / "db/schema.sql", "setseed(0.31)", f"setseed({rng.uniform(-1, 1):.8f})")
         title = "Pricing during a sale"
         dataset = f"24 products · {orders:,} recent order lines"

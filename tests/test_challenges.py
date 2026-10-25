@@ -21,7 +21,7 @@ def test_all_families_vary_data_and_keep_correctness_judges(tmp_path):
     project = Path(__file__).resolve().parents[1]
     concurrency = {
         "checkout": {650, 700, 750}, "catalog": {160, 180, 200},
-        "auth": {180, 200, 220}, "dashboard": {5, 6, 8}, "pricing": {180, 200, 220},
+        "auth": {180, 200, 220}, "dashboard": {5, 6, 8}, "pricing": {240, 260, 280},
     }
     for seed, selected_family in enumerate(TEMPLATES):
         case = generate_challenge(seed, family=selected_family, root=tmp_path)

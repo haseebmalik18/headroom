@@ -18,8 +18,8 @@ constraints:
   max_memory_mb: 1024
 
 workload:
-  concurrency: 200
-  think_ms: 200
+  concurrency: 260
+  think_ms: 150
   warmup: 10s
   duration: 30s
 
