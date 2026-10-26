@@ -33,6 +33,7 @@ class CandidateEvaluation(BaseModel):
     metric_value: float | None = None
     p99_ms: float | None = None
     throughput_rps: float | None = None
+    error_rate: float | None = None
     tests_passed: int | None = None
     tests_total: int | None = None
     meets_slo: bool = False          # every objective met
@@ -122,6 +123,7 @@ def evaluate(
             entry.metric_value = metric
             entry.p99_ms = result.median_load("p99_ms")
             entry.throughput_rps = result.median_load("throughput_rps")
+            entry.error_rate = result.median_load("error_rate")
             entry.goals_met = sum(goal.met(result.median_value(goal)) for goal in goals)
             entry.meets_slo = entry.goals_met == len(goals)
             entry.p99_change_pct = _change_pct(entry.p99_ms, base_p99)
@@ -140,7 +142,8 @@ def evaluate(
     if winner:
         winner.status = "winner"
 
-    measured = [c for c in evaluations if c.metric_value is not None]
+    # A fix whose requests mostly failed was quick only because it failed, so it is not "the fastest".
+    measured = [c for c in evaluations if c.metric_value is not None and (c.error_rate or 0) < 0.5]
     fastest = min(measured, key=rank, default=None)
     fastest_rejected = fastest.name if fastest and fastest.status == "rejected" else None
 

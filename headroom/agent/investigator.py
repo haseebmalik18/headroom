@@ -182,8 +182,9 @@ class Investigator:
                     winner_run = next(r for r in report.runs if r.candidate.name == evaluation.winner)
                     return self._finish(Phase.AWAITING_APPROVAL, context, winner=evaluation.winner,
                                         diff=winner_run.diff, verification=verification)
+        rounds = self.budget.max_patch_rounds
         return self._finish(Phase.UNRESOLVED, context,
-                            reason=f"no candidate recovered the SLO after {self.budget.max_patch_rounds} rounds")
+                            reason=f"no candidate recovered the SLO after {rounds} {'round' if rounds == 1 else 'rounds'} of fixes")
 
     def _finish(self, phase: Phase, context: Context | None, **kwargs) -> Outcome:
         outcome = Outcome(phase=phase, context=context, **kwargs)

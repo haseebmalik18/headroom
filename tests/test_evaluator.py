@@ -145,6 +145,13 @@ def test_fastest_rejected_is_none_when_fastest_is_valid():
     assert evaluation.fastest_rejected is None
 
 
+def test_a_fix_that_fails_every_request_is_not_called_the_fastest():
+    evaluation = _evaluate(b=_result("b", p99=71.0), c=_result("c", p99=6.0, passed=2, error_rate=1.0))
+
+    assert evaluation.winner == "b"
+    assert evaluation.fastest_rejected is None
+
+
 THROUGHPUT = Objective(endpoint="POST /inventory/reserve", metric="throughput_rps", target=240)
 
 

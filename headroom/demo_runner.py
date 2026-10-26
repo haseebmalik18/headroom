@@ -87,7 +87,7 @@ def run(publisher: Publisher, seed: int, failure: str = "random") -> None:
         raise RuntimeError("NEMOTRON_MODEL is required")
     outcome, _ = record_investigation(
         challenge.repo, client,
-        Budget(max_hypotheses=2, max_experiments=3, max_patch_rounds=1, candidates_per_round=2),
+        Budget(max_hypotheses=2, max_experiments=3, max_patch_rounds=2, candidates_per_round=2),
         store=store, on_record=publisher.event,
         warmup="5s", duration="10s", race_repeats=3, verify_runs=7,
     )
