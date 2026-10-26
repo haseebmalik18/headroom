@@ -16,7 +16,7 @@ const VUS = parseInt(__ENV.VUS || '100', 10);
 const WARMUP = __ENV.WARMUP || '10s';
 const DURATION = __ENV.DURATION || '30s';
 const THINK_MS = parseFloat(__ENV.THINK_MS || '1000');
-const STORE_COUNT = parseInt(__ENV.STORE_COUNT || '20', 10);
+const STORE_COUNT = parseInt(__ENV.STORE_COUNT || '200', 10);
 const LABEL = __ENV.LABEL || `vus-${VUS}`;
 
 function seconds(duration) {

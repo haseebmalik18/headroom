@@ -5,7 +5,7 @@ service: dashboard-service
 objective:
   endpoint: GET /dashboard/summary
   metric: p99_ms
-  target: 40
+  target: 60
 
 constraints:
   tests: pass
@@ -13,7 +13,7 @@ constraints:
   max_memory_mb: 1024
 
 workload:
-  concurrency: 5
+  concurrency: 12
   think_ms: 500
   warmup: 10s
   duration: 30s

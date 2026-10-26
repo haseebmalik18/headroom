@@ -36,7 +36,7 @@ scenarios:
 
   - name: sequential-queries
     repo: evals/scenarios/dashboard-service
-    root_cause: Five independent aggregate queries run one after another on a single connection.
+    root_cause: Five independent aggregate queries run one after another on a single connection, so their round trips to the distant reporting database add up.
     root_cause_keywords: [sequential, serial, one after another, concurren, parallel, gather]
     reference_fixes:
       - {name: gather, expect: valid}

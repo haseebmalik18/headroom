@@ -77,8 +77,11 @@ def generate_challenge(seed: int | None = None, *, family: str | None = None,
 
     config = yaml.safe_load((repo / "headroom.yaml").read_text())
     config["service"] = f"challenge-{seed}"
-    delay = rng.choice((500, 650, 800))
-    _replace(repo / "docker-compose.yml", "${DB_NETWORK_DELAY:-500us}", f"{delay}us")
+    # The dashboard reads from a reporting replica in another region; the other
+    # services talk to a database on a nearby host.
+    delay = 15_000 if family == "dashboard" else rng.choice((500, 650, 800))
+    default = "15ms" if family == "dashboard" else "500us"
+    _replace(repo / "docker-compose.yml", f"${{DB_NETWORK_DELAY:-{default}}}", f"{delay}us")
     if family == "checkout":
         products = rng.choice((750, 1000, 1500, 2000))
         concurrency = rng.choice((650, 700, 750))
@@ -110,11 +113,11 @@ def generate_challenge(seed: int | None = None, *, family: str | None = None,
         title = "Pricing during a sale"
         dataset = f"24 products · {orders:,} recent order lines"
     else:
-        concurrency = rng.choice((5, 6, 8))
+        concurrency = rng.choice((8, 10, 12))
         think_ms = rng.choice((400, 500, 650))
         _replace(repo / "db/schema.sql", "SELECT setseed(0.7);", f"SELECT setseed({rng.uniform(-1, 1):.8f});")
         title = "Analytics dashboard under load"
-        dataset = "20 stores · 400,000 orders"
+        dataset = "200 stores · 400,000 orders · database 15 ms away"
 
     config["workload"].update(concurrency=concurrency, think_ms=think_ms)
     # The data and dependency definitions are part of the challenge, not an
