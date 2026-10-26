@@ -2,7 +2,10 @@
 
 export function shortTitle(title: string): string {
   const cut = title.split(/,|;| — | - /)[0].replace(/\s*\([^)]*\)/g, "").trim();
-  return cut.length > 64 ? `${cut.slice(0, 61).trimEnd()}…` : cut;
+  if (cut.length <= 64) return cut;
+  const head = cut.slice(0, 62);
+  const space = head.lastIndexOf(" ");
+  return `${(space > 40 ? head.slice(0, space) : head).trimEnd()}…`;
 }
 
 export const humanizeTest = (id: string) => (id.split("::").at(-1) ?? id).replace(/^test_/, "").replace(/_/g, " ");

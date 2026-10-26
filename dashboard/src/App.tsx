@@ -107,7 +107,7 @@ function Investigation({ title, events, meta, now, controls, footer, finalDiff =
                 </dd>
               </div>
             ))}
-            <div><dt>Tests</dt><dd>{report?.candidate.tests_total != null ? `${report.candidate.tests_passed}/${report.candidate.tests_total} passed` : "Pending"}</dd></div>
+            <div><dt>Tests</dt><dd>{report?.candidate.tests_total != null ? `${report.candidate.tests_passed}/${report.candidate.tests_total} passed` : state === "running" ? "Pending" : "—"}</dd></div>
           </dl>
           <section className="finding">
             <h3>Root cause</h3>
@@ -175,7 +175,7 @@ const FAILURE_MODES: Record<FailureMode, { label: string; load: string }> = {
   checkout: { label: "Checkout lock contention", load: "650–750 concurrent shoppers" },
   catalog: { label: "Catalog N+1 queries", load: "160–200 concurrent browsers" },
   auth: { label: "Auth event-loop blocking", load: "180–220 readers · 8 logins/s" },
-  dashboard: { label: "Dashboard serial queries", load: "5–8 dashboards · 400K orders" },
+  dashboard: { label: "Dashboard serial queries", load: "8–12 dashboards · database 15 ms away" },
   pricing: { label: "Pricing during a sale", load: "180–220 shoppers on 5 bestsellers" },
 };
 
@@ -198,6 +198,12 @@ function HostedLiveView() {
   }, [feed.events, run]);
   const meta = useMemo<Meta>(() => ({ endpoint: challenge?.objective.endpoint ?? "", service: challenge?.title ?? "Live investigation",
     metric: challenge?.objective.metric, target: challenge?.objective.target ?? 100, candidates: [] }), [challenge]);
+  // A finished run without a verified fix stays on screen for whoever watched it, but
+  // new visitors land on the featured recorded run, with a link to the unresolved one.
+  const [watching, setWatching] = useState<string | null>(null);
+  useEffect(() => { if (running && run) setWatching(run.id); }, [running, run?.id]);
+  const verified = feed.events.some((e) => e.phase === "awaiting_approval");
+  const hideLast = !!challenge && !running && !verified && watching !== run?.id;
   const beginning = events.length ? Date.parse(events[0].at) : run?.created_at ?? feed.now;
   const elapsed = Math.max(0, (running ? feed.now : run?.finished_at ?? feed.now) - beginning);
   const selected = FAILURE_MODES[failure];
@@ -229,13 +235,14 @@ function HostedLiveView() {
     {feed.error && <p className="run-error" role="alert">{feed.error}</p>}
   </>;
   if (!challenge && !running && feed.connection === "connecting") return <main id="main-content" className="loading-state" role="status"><span className="icon spin" />Loading investigation…</main>;
-  if (!challenge && !running && featured) return <>
+  if ((!challenge && !running || hideLast) && featured) return <>
     <div className="live-toolbar">
       <span><b>Recorded run</b> / {TITLES[featured.scenario ?? ""] ?? featured.service}{featured.recorded_at && <> / {new Date(featured.recorded_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</>}</span>
       {startForm(true)}
     </div>
     {notices}
-    {run?.state === "failed" && <p className="run-error">The last live run stopped: {run.message}</p>}
+    {hideLast ? <p className="connection-note">The last live run ({failureDetails(challenge?.failure ?? run?.failure).label}) ended without a verified fix. <button className="text-action" onClick={() => setWatching(run!.id)}>Show it</button></p>
+      : run?.state === "failed" && <p className="run-error">The last live run stopped: {run.message}</p>}
     <SavedView key={featured.id} run={featured} controls={<span>Investigation finished</span>} />
   </>;
   if (!challenge) return <main id="main-content" className="incident-console">
