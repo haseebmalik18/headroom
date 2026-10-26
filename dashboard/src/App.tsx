@@ -121,13 +121,25 @@ function Investigation({ title, events, meta, now, controls, footer, finalDiff =
   );
 }
 
-function SavedView({ run }: { run: Run }) {
+function SavedView({ run, controls = null }: { run: Run; controls?: React.ReactNode }) {
   const now = run.events.length ? Date.parse(run.events.at(-1)!.at) - Date.parse(run.events[0].at) : 0;
   const meta = useMemo<Meta>(() => ({ endpoint: run.objective?.endpoint ?? "", service: run.service, metric: run.objective?.metric,
     target: run.objective?.target ?? 0, candidates: run.candidates }), [run]);
   const footer = run.actions_url && <a href={run.actions_url} target="_blank" rel="noreferrer">Execution log</a>;
   return <Investigation title={TITLES[run.scenario ?? ""] ?? run.service} events={run.events} meta={meta} now={now}
-    controls={null} footer={footer} />;
+    controls={controls} footer={footer} />;
+}
+
+/** The featured recorded run, shown on the hosted page whenever there is no live run to show. */
+function useFeaturedRun() {
+  const [run, setRun] = useState<Run | null>(null);
+  useEffect(() => {
+    let active = true;
+    loadIndex().then((index) => index.featured ? loadRun(index.featured) : null)
+      .then((data) => { if (active) setRun(data); }).catch(() => {});
+    return () => { active = false; };
+  }, []);
+  return run;
 }
 
 function LocalLiveView() {
@@ -173,7 +185,8 @@ function failureDetails(value: unknown) {
 
 function HostedLiveView() {
   const feed = useHostedFeed();
-  const [failure, setFailure] = useState<FailureMode>("checkout");
+  const featured = useFeaturedRun();
+  const [failure, setFailure] = useState<FailureMode>("pricing");
   const run = isLegacyCompletedRun(feed.run) ? null : feed.run;
   const running = run && ["queued", "running"].includes(run.state);
   const challenge = run?.challenge;
@@ -214,6 +227,16 @@ function HostedLiveView() {
   const notices = <>
     {connection && <p className="connection-note" role="status">{connection} {feed.connection !== "connecting" && <button className="text-action" onClick={feed.reconnect}>Reconnect</button>}</p>}
     {feed.error && <p className="run-error" role="alert">{feed.error}</p>}
+  </>;
+  if (!challenge && !running && feed.connection === "connecting") return <main id="main-content" className="loading-state" role="status"><span className="icon spin" />Loading investigation…</main>;
+  if (!challenge && !running && featured) return <>
+    <div className="live-toolbar">
+      <span><b>Recorded run</b> / {TITLES[featured.scenario ?? ""] ?? featured.service}{featured.recorded_at && <> / {new Date(featured.recorded_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</>}</span>
+      {startForm(true)}
+    </div>
+    {notices}
+    {run?.state === "failed" && <p className="run-error">The last live run stopped: {run.message}</p>}
+    <SavedView key={featured.id} run={featured} controls={<span>Investigation finished</span>} />
   </>;
   if (!challenge) return <main id="main-content" className="incident-console">
     <header className="console-bar">
