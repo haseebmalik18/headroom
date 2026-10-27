@@ -77,6 +77,8 @@ export function buildStory(events: RunEvent[], now: number, meta: Meta): Story {
   let phase = "";
   let round = 0;
   let winner: string | null = null;
+  let bestPassing: number | null = null; // the best value any passing fix reached, across rounds
+  const better = (a: number, b: number) => higherIsBetter(story.metric) ? a > b : a < b;
   let reason: string | null = null;
   const open = <E extends Entry>(entry: E): E => {
     story.entries.push(entry);
@@ -216,15 +218,16 @@ export function buildStory(events: RunEvent[], now: number, meta: Meta): Story {
               : null,
           });
           if (value !== null) story.markers.push({ kind: c.status, label: c.name, value });
+          if ((c.status === "winner" || c.status === "valid") && value !== null && (bestPassing === null || better(value, bestPassing))) {
+            bestPassing = value;
+          }
         }
         {
           const rejected = fixes.get(data.evaluation?.fastest_rejected);
           const selected = winner ? fixes.get(winner) : null;
           // Only "the fastest" if it beat every fix that passed, including earlier rounds.
-          const beatsPassing = (value: number) => [...fixes.values()].every((f) =>
-            f.status !== "winner" && f.status !== "valid" || f.value === null ||
-            (higherIsBetter(story.metric) ? value > f.value : value < f.value));
-          if (rejected?.status === "rejected" && rejected.value !== null && rejected.reason && beatsPassing(rejected.value)) {
+          if (rejected?.status === "rejected" && rejected.value !== null && rejected.reason &&
+              (bestPassing === null || better(rejected.value, bestPassing))) {
             story.safetyRejection = {
               name: rejected.name,
               value: rejected.value,
