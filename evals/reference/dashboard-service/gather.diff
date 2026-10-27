@@ -1,5 +1,5 @@
 diff --git a/app/dashboard.py b/app/dashboard.py
-index b661aae..fe13209 100644
+index 92d78cf..ab0c4cf 100644
 --- a/app/dashboard.py
 +++ b/app/dashboard.py
 @@ -1,5 +1,7 @@
@@ -10,31 +10,22 @@ index b661aae..fe13209 100644
  import asyncpg
  
  from . import telemetry
-@@ -49,15 +51,24 @@ async def _fetch(conn: asyncpg.Connection, name: str, sql: str, store_id: int):
-         return await conn.fetch(sql, store_id)
- 
- 
-+async def _fetch_on_own_connection(pool: asyncpg.Pool, name: str, sql: str, store_id: int):
-+    async with pool.acquire() as conn:
-+        return await _fetch(conn, name, sql, store_id)
-+
-+
+@@ -52,11 +54,15 @@ async def _fetch(pool: asyncpg.Pool, name: str, sql: str, store_id: int):
  async def summary(pool: asyncpg.Pool, store_id: int) -> dict:
-     async with pool.acquire() as conn:
-         if await conn.fetchval("SELECT 1 FROM stores WHERE id = $1", store_id) is None:
-             raise UnknownStore(store_id)
--        revenue = (await _fetch(conn, "revenue", REVENUE, store_id))[0]
--        daily = await _fetch(conn, "daily_revenue", DAILY_REVENUE, store_id)
--        top = await _fetch(conn, "top_products", TOP_PRODUCTS, store_id)
--        repeat = (await _fetch(conn, "repeat_customers", REPEAT_CUSTOMERS, store_id))[0]
--        tickets = (await _fetch(conn, "open_tickets", OPEN_TICKETS, store_id))[0]
+     if await pool.fetchval("SELECT 1 FROM stores WHERE id = $1", store_id) is None:
+         raise UnknownStore(store_id)
+-    revenue = (await _fetch(pool, "revenue", REVENUE, store_id))[0]
+-    daily = await _fetch(pool, "daily_revenue", DAILY_REVENUE, store_id)
+-    top = await _fetch(pool, "top_products", TOP_PRODUCTS, store_id)
+-    repeat = (await _fetch(pool, "repeat_customers", REPEAT_CUSTOMERS, store_id))[0]
+-    tickets = (await _fetch(pool, "open_tickets", OPEN_TICKETS, store_id))[0]
 +    # The five queries are independent, so run them concurrently on separate connections.
 +    revenue_rows, daily, top, repeat_rows, ticket_rows = await asyncio.gather(
-+        _fetch_on_own_connection(pool, "revenue", REVENUE, store_id),
-+        _fetch_on_own_connection(pool, "daily_revenue", DAILY_REVENUE, store_id),
-+        _fetch_on_own_connection(pool, "top_products", TOP_PRODUCTS, store_id),
-+        _fetch_on_own_connection(pool, "repeat_customers", REPEAT_CUSTOMERS, store_id),
-+        _fetch_on_own_connection(pool, "open_tickets", OPEN_TICKETS, store_id),
++        _fetch(pool, "revenue", REVENUE, store_id),
++        _fetch(pool, "daily_revenue", DAILY_REVENUE, store_id),
++        _fetch(pool, "top_products", TOP_PRODUCTS, store_id),
++        _fetch(pool, "repeat_customers", REPEAT_CUSTOMERS, store_id),
++        _fetch(pool, "open_tickets", OPEN_TICKETS, store_id),
 +    )
 +    revenue, repeat, tickets = revenue_rows[0], repeat_rows[0], ticket_rows[0]
  

@@ -1,5 +1,5 @@
 diff --git a/app/dashboard.py b/app/dashboard.py
-index b661aae..3cfac12 100644
+index 92d78cf..ade66fc 100644
 --- a/app/dashboard.py
 +++ b/app/dashboard.py
 @@ -1,5 +1,7 @@
@@ -10,8 +10,8 @@ index b661aae..3cfac12 100644
  import asyncpg
  
  from . import telemetry
-@@ -49,7 +51,20 @@ async def _fetch(conn: asyncpg.Connection, name: str, sql: str, store_id: int):
-         return await conn.fetch(sql, store_id)
+@@ -49,7 +51,20 @@ async def _fetch(pool: asyncpg.Pool, name: str, sql: str, store_id: int):
+         return await pool.fetch(sql, store_id)
  
  
 +_cache: dict[int, tuple[float, dict]] = {}
@@ -28,6 +28,6 @@ index b661aae..3cfac12 100644
 +
 +
 +async def _summary(pool: asyncpg.Pool, store_id: int) -> dict:
-     async with pool.acquire() as conn:
-         if await conn.fetchval("SELECT 1 FROM stores WHERE id = $1", store_id) is None:
-             raise UnknownStore(store_id)
+     if await pool.fetchval("SELECT 1 FROM stores WHERE id = $1", store_id) is None:
+         raise UnknownStore(store_id)
+     revenue = (await _fetch(pool, "revenue", REVENUE, store_id))[0]

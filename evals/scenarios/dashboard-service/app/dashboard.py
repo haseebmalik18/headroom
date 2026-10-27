@@ -44,20 +44,19 @@ SELECT count(*) AS repeat_customers FROM (
 OPEN_TICKETS = "SELECT count(*) AS open_tickets FROM tickets WHERE store_id = $1 AND status = 'open'"
 
 
-async def _fetch(conn: asyncpg.Connection, name: str, sql: str, store_id: int):
+async def _fetch(pool: asyncpg.Pool, name: str, sql: str, store_id: int):
     with telemetry.span(f"db.{name}"):
-        return await conn.fetch(sql, store_id)
+        return await pool.fetch(sql, store_id)
 
 
 async def summary(pool: asyncpg.Pool, store_id: int) -> dict:
-    async with pool.acquire() as conn:
-        if await conn.fetchval("SELECT 1 FROM stores WHERE id = $1", store_id) is None:
-            raise UnknownStore(store_id)
-        revenue = (await _fetch(conn, "revenue", REVENUE, store_id))[0]
-        daily = await _fetch(conn, "daily_revenue", DAILY_REVENUE, store_id)
-        top = await _fetch(conn, "top_products", TOP_PRODUCTS, store_id)
-        repeat = (await _fetch(conn, "repeat_customers", REPEAT_CUSTOMERS, store_id))[0]
-        tickets = (await _fetch(conn, "open_tickets", OPEN_TICKETS, store_id))[0]
+    if await pool.fetchval("SELECT 1 FROM stores WHERE id = $1", store_id) is None:
+        raise UnknownStore(store_id)
+    revenue = (await _fetch(pool, "revenue", REVENUE, store_id))[0]
+    daily = await _fetch(pool, "daily_revenue", DAILY_REVENUE, store_id)
+    top = await _fetch(pool, "top_products", TOP_PRODUCTS, store_id)
+    repeat = (await _fetch(pool, "repeat_customers", REPEAT_CUSTOMERS, store_id))[0]
+    tickets = (await _fetch(pool, "open_tickets", OPEN_TICKETS, store_id))[0]
 
     return {
         "store_id": store_id,

@@ -5,7 +5,7 @@ service: dashboard-service
 objective:
   endpoint: GET /dashboard/summary
   metric: p99_ms
-  target: 60
+  target: 100
 
 constraints:
   tests: pass
