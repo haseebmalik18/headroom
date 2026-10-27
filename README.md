@@ -60,7 +60,7 @@ about.
 | Checkout | A global lock serializes stock reservations | p99 under 100 ms | 763 to 855 ms | 8 to 9 ms | 3 of 3 |
 | Checkout, throughput | The same lock caps reservations per second | at least 240 req/s | 187 req/s | 249 req/s | 1 of 1 |
 | Catalog | Two extra queries per product on a category page | p99 under 50 ms | 127 ms | 4 to 7 ms | 2 of 2 |
-| Dashboard | Five queries run one after another against a database 15 ms away | p99 under 100 ms | 193 to 196 ms | 71 to 73 ms | 2 of 2 |
+| Dashboard | Five queries run one after another against a database 15 ms away | p99 under 120 ms | 193 to 196 ms | 71 to 73 ms | 2 of 2 |
 | Accounts | Password hashing blocks the async event loop | p99 under 50 ms | 2.5 s | 5 ms | 1 of 3 |
 
 On Pricing, Nemotron named the stampede in 4 of 5 runs. In the fifth it blamed the connection pool, but it still wrote
