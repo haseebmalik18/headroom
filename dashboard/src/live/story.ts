@@ -1,5 +1,5 @@
 import type { Candidate, Hypothesis, RunEvent, Verification } from "../data/types";
-import { metricName, show } from "./goal";
+import { higherIsBetter, metricName, show } from "./goal";
 import { explainTestFailure, firstSentence, shortTitle } from "./text";
 
 /** One thing that happened, told as a sentence on the page. `end` is null while it is still happening. */
@@ -220,7 +220,11 @@ export function buildStory(events: RunEvent[], now: number, meta: Meta): Story {
         {
           const rejected = fixes.get(data.evaluation?.fastest_rejected);
           const selected = winner ? fixes.get(winner) : null;
-          if (rejected?.status === "rejected" && rejected.value !== null && rejected.reason) {
+          // Only "the fastest" if it beat every fix that passed, including earlier rounds.
+          const beatsPassing = (value: number) => [...fixes.values()].every((f) =>
+            f.status !== "winner" && f.status !== "valid" || f.value === null ||
+            (higherIsBetter(story.metric) ? value > f.value : value < f.value));
+          if (rejected?.status === "rejected" && rejected.value !== null && rejected.reason && beatsPassing(rejected.value)) {
             story.safetyRejection = {
               name: rejected.name,
               value: rejected.value,

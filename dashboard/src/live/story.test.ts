@@ -109,6 +109,19 @@ describe("buildStory when finished", () => {
     });
   });
 
+  it("does not call a rejected fix the fastest when an earlier round had a faster one", () => {
+    const failedVerify = FINISHED.slice(0, -2);
+    const story2 = buildStory([
+      ...failedVerify,
+      ev(910, "generate_candidates", "phase", "Generating candidate fixes (round 2)"),
+      ev(920, "generate_candidates", "candidate", "c", { candidate: { name: "fused-query", strategy: "One query." } }),
+      ev(990, "evaluate_candidates", "race", "No valid candidate", { evaluation: { winner: null, fastest_rejected: "fused-query", candidates: [
+        { name: "fused-query", status: "rejected", p99_ms: 12, tests_passed: 3, tests_total: 17, reasons: ["tests failed"], failing_tests: ["tests.test_x::test_y"] },
+      ] } }),
+    ], 1_000_000, meta);
+    expect(story2.safetyRejection?.name).toBe("optimistic-retry");
+  });
+
   it("drops every measured fix and the verified result onto the ruler", () => {
     expect(story.markers.map((m) => [m.kind, m.label, m.value])).toEqual([
       ["before", "before", 763],
